@@ -1,0 +1,5 @@
+{
+  "X_CLIENT_ID": "your_oauth2_client_id",
+  "X_CLIENT_SECRET": "your_oauth2_client_secret",
+  "mode": "read-only"
+}

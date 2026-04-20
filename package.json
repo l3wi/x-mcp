@@ -1,0 +1,60 @@
+{
+  "name": "x-mcp",
+  "version": "0.2.0",
+  "description": "MCP server and CLI for X/Twitter API v2",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/l3wi/x-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/l3wi/x-mcp/issues"
+  },
+  "homepage": "https://github.com/l3wi/x-mcp#readme",
+  "keywords": [
+    "x",
+    "twitter",
+    "cli",
+    "mcp",
+    "oauth",
+    "agent"
+  ],
+  "bin": {
+    "x-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    ".env.example",
+    "config.example.json"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@11.9.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0",
+    "incur": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0"
+  }
+}
