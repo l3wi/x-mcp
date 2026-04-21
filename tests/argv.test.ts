@@ -70,6 +70,33 @@ describe("prepareServeArgv", () => {
     });
   });
 
+  test("does not treat --export on another command as auth export", () => {
+    expect(
+      prepareServeArgv("/usr/local/bin/x-cli", [
+        "tweet",
+        "search",
+        "cats",
+        "--export",
+        "codex",
+      ]),
+    ).toEqual({
+      argv: ["tweet", "search", "cats", "--export", "codex"],
+    });
+  });
+
+  test("preserves literal args after -- separator", () => {
+    expect(
+      prepareServeArgv("/usr/local/bin/x-cli", [
+        "tweet",
+        "search",
+        "--",
+        "--export",
+      ]),
+    ).toEqual({
+      argv: ["tweet", "search", "--", "--export"],
+    });
+  });
+
   test("normalizes auth export --format to positional format", () => {
     expect(
       prepareServeArgv("/usr/local/bin/x-cli", [

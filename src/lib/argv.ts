@@ -58,9 +58,14 @@ export function prepareServeArgv(
 function extractBootstrapFlags(argv: string[]): PreparedArgv {
   const rest: string[] = [];
   const result: PreparedArgv = { argv: rest };
+  const allowMcpExport = hasFlagBeforeSeparator(argv, "--mcp");
 
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i] as string;
+    if (token === "--") {
+      rest.push(...argv.slice(i));
+      break;
+    }
     if (token === "--auth-json") {
       result.authJson = requireValue(argv[++i], "--auth-json");
     } else if (token.startsWith("--auth-json=")) {
@@ -69,9 +74,9 @@ function extractBootstrapFlags(argv: string[]): PreparedArgv {
       result.mcpMode = parseMode(requireValue(argv[++i], "--mcp-mode"));
     } else if (token.startsWith("--mcp-mode=")) {
       result.mcpMode = parseMode(token.slice("--mcp-mode=".length));
-    } else if (token === "--export") {
+    } else if (allowMcpExport && token === "--export") {
       result.exportFormat = parseExportFormat(argv[++i] ?? "json");
-    } else if (token.startsWith("--export=")) {
+    } else if (allowMcpExport && token.startsWith("--export=")) {
       result.exportFormat = parseExportFormat(token.slice("--export=".length) || "json");
     } else {
       rest.push(token);
@@ -87,6 +92,10 @@ function normalizeAuthExportFormatArgv(argv: string[]): string[] {
 
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i] as string;
+    if (token === "--") {
+      normalized.push(...argv.slice(i));
+      break;
+    }
     if (token === "--format") {
       normalized.push(requireValue(argv[++i], "--format"));
     } else if (token.startsWith("--format=")) {
@@ -112,4 +121,12 @@ function parseExportFormat(value: string): ExportFormat {
 function requireValue(value: string | undefined, flag: string): string {
   if (!value) throw new Error(`Missing value for ${flag}.`);
   return value;
+}
+
+function hasFlagBeforeSeparator(argv: string[], flag: string): boolean {
+  for (const token of argv) {
+    if (token === "--") return false;
+    if (token === flag) return true;
+  }
+  return false;
 }

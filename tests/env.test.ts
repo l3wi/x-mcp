@@ -8,6 +8,7 @@ import {
   saveConfigJson,
   setConfigMode,
 } from "../src/lib/env.js";
+import { clearRuntimeAuth, setRuntimeTokens } from "../src/lib/runtime.js";
 
 const originalClientId = process.env.X_CLIENT_ID;
 const originalClientSecret = process.env.X_CLIENT_SECRET;
@@ -37,6 +38,7 @@ describe("config JSON", () => {
   });
 
   afterEach(() => {
+    clearRuntimeAuth();
     restoreEnv();
     rmSync(dir, { recursive: true, force: true });
   });
@@ -108,6 +110,12 @@ describe("config JSON", () => {
 
   test("read-write guard allows read-write mode", () => {
     saveConfigJson({ mode: "read-write" }, path);
+    setRuntimeTokens({
+      access_token: "access",
+      refresh_token: "refresh",
+      expires_at: 1_900_000_000,
+      scope: "tweet.read users.read offline.access tweet.write like.write bookmark.write",
+    });
 
     expect(() => requireReadWriteMode(path)).not.toThrow();
   });

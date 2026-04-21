@@ -11,6 +11,7 @@ import {
   setRuntimeConfig,
   setRuntimeTokens,
 } from "./runtime.js";
+import { assertRequiredWriteScopes } from "./scopes.js";
 
 const AUTH_BUNDLE_TYPE = "x-cli-auth";
 const AUTH_BUNDLE_VERSION = 1;
@@ -45,7 +46,9 @@ export function createAuthBundle(
     version: AUTH_BUNDLE_VERSION,
     config: {
       X_CLIENT_ID: config.X_CLIENT_ID,
-      ...(config.X_CLIENT_SECRET ? { X_CLIENT_SECRET: config.X_CLIENT_SECRET } : {}),
+      ...(config.X_CLIENT_SECRET
+        ? { X_CLIENT_SECRET: config.X_CLIENT_SECRET }
+        : {}),
       mode: normalizeMode(config.mode),
     },
     tokens,
@@ -81,7 +84,10 @@ export function parseAuthBundleJson(json: string): AuthBundle {
     config?: unknown;
     tokens?: unknown;
   };
-  if (bundle.type !== AUTH_BUNDLE_TYPE || bundle.version !== AUTH_BUNDLE_VERSION) {
+  if (
+    bundle.type !== AUTH_BUNDLE_TYPE ||
+    bundle.version !== AUTH_BUNDLE_VERSION
+  ) {
     throw new Error("Invalid auth JSON. Expected type `x-cli-auth` version 1.");
   }
   return createAuthBundle(
@@ -90,16 +96,23 @@ export function parseAuthBundleJson(json: string): AuthBundle {
   );
 }
 
-export function applyAuthBundleJson(json: string, modeOverride?: CliMode): AuthBundle {
+export function applyAuthBundleJson(
+  json: string,
+  modeOverride?: CliMode,
+): AuthBundle {
   const bundle = parseAuthBundleJson(json);
   const config = {
     ...bundle.config,
     mode: modeOverride ?? bundle.config.mode,
   };
   const applied = createAuthBundle(config, bundle.tokens);
+  if (applied.config.mode === "read-write") {
+    assertRequiredWriteScopes(applied.tokens.scope);
+  }
 
   setRuntimeConfig(applied.config);
   setRuntimeTokens(applied.tokens);
+  delete process.env.X_CLI_AUTH_JSON;
   process.env.X_CLIENT_ID = applied.config.X_CLIENT_ID;
   if (applied.config.X_CLIENT_SECRET) {
     process.env.X_CLIENT_SECRET = applied.config.X_CLIENT_SECRET;

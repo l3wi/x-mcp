@@ -8,12 +8,19 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/l3wi/x-mcp.git"
+    "url": "git+https://github.com/l3wi/x-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/l3wi/x-mcp/issues"
+    "url": "https://github.com/l3wi/x-cli/issues"
   },
-  "homepage": "https://github.com/l3wi/x-mcp#readme",
+  "homepage": "https://github.com/l3wi/x-cli#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "keywords": [
     "x",
     "twitter",
@@ -27,6 +34,7 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.map",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",

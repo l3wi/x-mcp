@@ -2,7 +2,7 @@ import { Cli, z } from "incur";
 import { envSchema } from "../lib/env.js";
 import { createClient } from "../lib/api.js";
 import { paginateCursor } from "../lib/pagination.js";
-import { stripAt } from "../lib/utils.js";
+import { parseUsername } from "../lib/utils.js";
 
 export const user = Cli.create("user", {
   description: "User operations",
@@ -16,7 +16,7 @@ user.command("get", {
   }),
   async run(c) {
     const client = createClient(c.env);
-    return client.getUser(stripAt(c.args.username));
+    return client.getUser(parseUsername(c.args.username));
   },
 });
 
@@ -34,7 +34,7 @@ user.command("timeline", {
   }),
   async run(c) {
     const client = createClient(c.env);
-    const uname = stripAt(c.args.username);
+    const uname = parseUsername(c.args.username);
     const userData = (await client.getUser(uname)) as { data: { id: string } };
     return paginateCursor(c.options, (request) =>
       client.getTimeline(userData.data.id, request),
@@ -56,7 +56,7 @@ user.command("followers", {
   }),
   async run(c) {
     const client = createClient(c.env);
-    const uname = stripAt(c.args.username);
+    const uname = parseUsername(c.args.username);
     const userData = (await client.getUser(uname)) as { data: { id: string } };
     return paginateCursor(c.options, (request) =>
       client.getFollowers(userData.data.id, request),
@@ -78,7 +78,7 @@ user.command("following", {
   }),
   async run(c) {
     const client = createClient(c.env);
-    const uname = stripAt(c.args.username);
+    const uname = parseUsername(c.args.username);
     const userData = (await client.getUser(uname)) as { data: { id: string } };
     return paginateCursor(c.options, (request) =>
       client.getFollowing(userData.data.id, request),

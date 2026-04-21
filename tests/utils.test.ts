@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { parseTweetId, stripAt } from "../src/lib/utils.js";
+import { parseTweetId, parseUsername, stripAt } from "../src/lib/utils.js";
 
 describe("parseTweetId", () => {
   test("raw numeric string", () => {
@@ -47,10 +47,22 @@ describe("stripAt", () => {
   });
 
   test("empty string", () => {
-    expect(stripAt("")).toBe("");
+    expect(() => stripAt("")).toThrow("Invalid X username");
   });
 
-  test("only removes first @", () => {
-    expect(stripAt("@@double")).toBe("@double");
+  test("rejects invalid usernames", () => {
+    for (const input of ["@", "@@double", "foo/bar", "has space", "sixteen_chars_xx"]) {
+      expect(() => stripAt(input)).toThrow("Invalid X username");
+    }
+  });
+});
+
+describe("parseUsername", () => {
+  test("trims and removes @ prefix", () => {
+    expect(parseUsername(" @elonmusk ")).toBe("elonmusk");
+  });
+
+  test("accepts underscores and digits", () => {
+    expect(parseUsername("user_123")).toBe("user_123");
   });
 });

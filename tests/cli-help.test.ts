@@ -2,12 +2,15 @@ import { describe, expect, test } from "vitest";
 import { spawn } from "node:child_process";
 
 async function cliHelp(args: string[]): Promise<string> {
+  return cli([...args, "--help"]);
+}
+
+async function cli(args: string[]): Promise<string> {
   const proc = spawn(process.execPath, [
     "--import",
     "tsx",
     "src/index.ts",
     ...args,
-    "--help",
   ], {
     cwd: process.cwd(),
     env: process.env,
@@ -52,4 +55,22 @@ describe("paginated command help", () => {
       expect(help).not.toContain("--max");
     });
   }
+});
+
+describe("bootstrap help and introspection", () => {
+  test("--mcp --help prints help instead of starting stdio MCP", async () => {
+    const help = await cli(["--mcp", "--help"]);
+
+    expect(help).toContain("Usage: x-cli <command>");
+    expect(help).toContain("Global Options:");
+  });
+
+  test("auth export schema is handled by incur and does not render auth", async () => {
+    const schema = await cli(["auth", "export", "--schema"]);
+
+    expect(schema).toContain("properties:");
+    expect(schema).toContain("format:");
+    expect(schema).not.toContain("x-cli-auth");
+    expect(schema).not.toContain("refresh_token");
+  });
 });

@@ -108,12 +108,9 @@ export class XApiClient {
       const reset = resp.headers.get("x-rate-limit-reset") ?? "unknown";
       throw new Error(`Rate limited. Resets at ${reset}.`);
     }
-    const data = (await resp.json()) as Record<string, unknown>;
+    const { data, text } = await readResponse(resp);
     if (!resp.ok) {
-      const errors = data.errors as Array<{ detail?: string; message?: string }> | undefined;
-      const msg = errors
-        ? errors.map((e) => e.detail ?? e.message ?? "").join("; ")
-        : JSON.stringify(data).slice(0, 500);
+      const msg = errorMessage(data, text);
       if (resp.status === 400 && msg.toLowerCase().includes("operator")) {
         throw new Error(
           `API error (HTTP 400): ${msg}\n\n` +
@@ -153,6 +150,7 @@ export class XApiClient {
       body.quote_tweet_id = opts.quoteTweetId;
     }
     if (opts?.pollOptions) {
+      validatePoll(opts.pollOptions, opts.pollDurationMinutes ?? 1440);
       body.poll = {
         options: opts.pollOptions,
         duration_minutes: opts.pollDurationMinutes ?? 1440,
@@ -236,7 +234,7 @@ export class XApiClient {
 
   async getTweetMetrics(tweetId: string) {
     const params = new URLSearchParams({
-      "tweet.fields": "public_metrics,non_public_metrics,organic_metrics",
+      "tweet.fields": "public_metrics",
     });
     return this.request("GET", `${API_BASE}/tweets/${tweetId}?${params}`);
   }
@@ -250,7 +248,7 @@ export class XApiClient {
     });
     return this.request(
       "GET",
-      `${API_BASE}/users/by/username/${username}?${params}`,
+      `${API_BASE}/users/by/username/${encodeURIComponent(username)}?${params}`,
     );
   }
 
@@ -376,3 +374,67 @@ export {
   buildConversationContextSearchUrl as _buildConversationContextSearchUrl,
   getConversationId as _getConversationId,
 };
+
+async function readResponse(resp: Response): Promise<{
+  data: Record<string, unknown>;
+  text: string;
+}> {
+  const text = await resp.text();
+  if (!text) return { data: {}, text };
+  try {
+    return {
+      data: JSON.parse(text) as Record<string, unknown>,
+      text,
+    };
+  } catch {
+    return { data: {}, text };
+  }
+}
+
+function errorMessage(data: Record<string, unknown>, text: string): string {
+  const errors = data.errors;
+  if (Array.isArray(errors)) {
+    const messages = errors
+      .map((error) => {
+        if (!error || typeof error !== "object") return "";
+        const raw = error as Record<string, unknown>;
+        return [
+          raw.title,
+          raw.detail,
+          raw.message,
+          raw.type,
+          raw.status,
+        ]
+          .filter((part) =>
+            part !== undefined && part !== null && String(part).length > 0
+          )
+          .map(String)
+          .join(": ");
+      })
+      .filter(Boolean);
+    if (messages.length > 0) return messages.join("; ");
+  }
+  if (typeof data.detail === "string") return data.detail;
+  if (typeof data.title === "string") return data.title;
+  if (typeof data.message === "string") return data.message;
+  if (text) return text.slice(0, 500);
+  return JSON.stringify(data).slice(0, 500);
+}
+
+function validatePoll(options: string[], durationMinutes: number): void {
+  if (options.length < 2 || options.length > 4) {
+    throw new Error("Polls require 2 to 4 options.");
+  }
+  for (const option of options) {
+    if (option.length < 1 || option.length > 25) {
+      throw new Error("Poll options must be 1 to 25 characters.");
+    }
+  }
+  if (
+    !Number.isInteger(durationMinutes) ||
+    durationMinutes < 5 ||
+    durationMinutes > 10_080
+  ) {
+    throw new Error("Poll duration must be between 5 and 10080 minutes.");
+  }
+}
