@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.2.1
 
 - Hid write tools and mutating local auth/config tools from MCP when they are not safe to expose.
 - Required write OAuth scopes before enabling read-write mode or accepting read-write runtime auth.
@@ -9,6 +9,9 @@
 - Hardened X API error messages, username validation, poll validation, and public metrics requests.
 - Scoped auth export bootstrap handling so unrelated commands cannot accidentally print auth bundles.
 - Updated package metadata for the `l3wi/x-cli` repository.
+- Added a skills.sh-compatible `x-cli` skill and documented `npx skills add`.
+- Added `x-cli auth import` for restoring exported auth bundles into local config and tokens.
+- Changed `x-cli auth export json` to emit compact single-line JSON for easier import.
 - Made `x-cli` the canonical npm CLI and MCP server command.
 - Moved package distribution toward Node.js 20+ with built `dist` output.
 - Blocked auth bundle export while serving MCP.

@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { prepareServeArgv, resolveCliName, resolveServeArgv } from "../src/lib/argv.js";
+import {
+  prepareServeArgv,
+  resolveCliName,
+  resolveServeArgv,
+} from "../src/lib/argv.js";
 
 describe("resolveCliName", () => {
   test("uses x-cli for x-cli invocation help", () => {
     expect(resolveCliName("/usr/local/bin/x-cli")).toBe("x-cli");
+  });
+
+  test("uses x-mcp for x-mcp invocation help", () => {
+    expect(resolveCliName("/usr/local/bin/x-mcp")).toBe("x-mcp");
   });
 
   test("defaults to x-cli for direct source execution", () => {
@@ -12,12 +20,16 @@ describe("resolveCliName", () => {
 });
 
 describe("resolveServeArgv", () => {
-  test("defaults bare x-cli invocation to MCP stdio mode", () => {
-    expect(resolveServeArgv("/usr/local/bin/x-cli", [])).toEqual(["--mcp"]);
+  test("defaults bare x-cli invocation to help", () => {
+    expect(resolveServeArgv("/usr/local/bin/x-cli", [])).toEqual(["--help"]);
   });
 
-  test("uses shell command path when defaulting bare x-cli to MCP stdio mode", () => {
-    expect(resolveServeArgv("/repo/dist/index.js", [], "/usr/local/bin/x-cli")).toEqual(["--mcp"]);
+  test("defaults bare x-mcp invocation to MCP stdio mode", () => {
+    expect(resolveServeArgv("/usr/local/bin/x-mcp", [])).toEqual(["--mcp"]);
+  });
+
+  test("uses shell command path when defaulting bare x-mcp to MCP stdio mode", () => {
+    expect(resolveServeArgv("/repo/dist/index.js", [], "/usr/local/bin/x-mcp")).toEqual(["--mcp"]);
   });
 
   test("does not override explicit x-cli arguments", () => {
@@ -25,7 +37,6 @@ describe("resolveServeArgv", () => {
       "--help",
     ]);
   });
-
 });
 
 describe("prepareServeArgv", () => {
@@ -45,14 +56,26 @@ describe("prepareServeArgv", () => {
     });
   });
 
-  test("bare x-cli with auth json still defaults to mcp mode", () => {
+  test("bare x-mcp with auth json still defaults to mcp mode", () => {
+    expect(
+      prepareServeArgv("/repo/src/index.ts", [
+        "--auth-json",
+        "{}",
+      ], "/usr/local/bin/x-mcp"),
+    ).toEqual({
+      argv: ["--mcp"],
+      authJson: "{}",
+    });
+  });
+
+  test("bare x-cli with auth json shows help instead of mcp mode", () => {
     expect(
       prepareServeArgv("/repo/src/index.ts", [
         "--auth-json",
         "{}",
       ], "/usr/local/bin/x-cli"),
     ).toEqual({
-      argv: ["--mcp"],
+      argv: ["--help"],
       authJson: "{}",
     });
   });

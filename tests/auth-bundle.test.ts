@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import {
   applyAuthBundleJson,
   createAuthBundle,
+  persistAuthBundleJson,
   renderAuthBundle,
   renderAuthExport,
 } from "../src/lib/auth-bundle.js";
@@ -85,6 +86,36 @@ describe("auth bundle", () => {
     expect(output).toContain("startup_timeout_sec = 20");
   });
 
+  test("renders json auth export as a single-line string", () => {
+    const bundle = createAuthBundle({ X_CLIENT_ID: "client" }, tokens());
+    const output = renderAuthBundle(bundle, "json");
+
+    expect(output).toBe(JSON.stringify(bundle));
+    expect(output).not.toContain("\n");
+  });
+
+  test("imports single-line json auth export", () => {
+    const bundle = createAuthBundle({ X_CLIENT_ID: "client" }, tokens());
+    const saved: Record<string, unknown> = {};
+
+    persistAuthBundleJson(renderAuthBundle(bundle, "json"), {
+      saveConfig(config) {
+        saved.config = config;
+      },
+      saveTokens(tokens) {
+        saved.tokens = tokens;
+      },
+    });
+
+    expect(saved).toEqual({
+      config: {
+        X_CLIENT_ID: "client",
+        mode: "read-only",
+      },
+      tokens: tokens(),
+    });
+  });
+
   test("renders claude config with auth in environment", () => {
     const bundle = createAuthBundle({ X_CLIENT_ID: "client" }, tokens());
     const output = JSON.parse(renderAuthBundle(bundle, "claude")) as {
@@ -141,5 +172,41 @@ describe("auth bundle", () => {
     expect(() => applyAuthBundleJson(JSON.stringify(bundle), "read-write")).toThrow(
       "did not grant all required write scopes",
     );
+  });
+
+  test("persists imported auth bundle config and tokens", () => {
+    const bundle = createAuthBundle(
+      {
+        X_CLIENT_ID: "client",
+        X_CLIENT_SECRET: "secret",
+        mode: "read-only",
+      },
+      writeTokens(),
+    );
+    const saved: Record<string, unknown> = {};
+
+    const imported = persistAuthBundleJson(JSON.stringify(bundle), {
+      modeOverride: "read-write",
+      saveConfig(config) {
+        saved.config = config;
+      },
+      saveTokens(tokens) {
+        saved.tokens = tokens;
+      },
+    });
+
+    expect(imported.config).toEqual({
+      X_CLIENT_ID: "client",
+      X_CLIENT_SECRET: "secret",
+      mode: "read-write",
+    });
+    expect(saved).toEqual({
+      config: {
+        X_CLIENT_ID: "client",
+        X_CLIENT_SECRET: "secret",
+        mode: "read-write",
+      },
+      tokens: writeTokens(),
+    });
   });
 });

@@ -2,10 +2,11 @@ import {
   getConfigMode,
   getEnvFromProcess,
   loadConfigJson,
+  saveConfigJson,
   type CliMode,
   type ConfigJson,
 } from "./env.js";
-import { loadTokens, type StoredTokens } from "./tokens.js";
+import { loadTokens, saveTokens, type StoredTokens } from "./tokens.js";
 import {
   isRuntimeMcpServing,
   setRuntimeConfig,
@@ -24,6 +25,12 @@ export interface AuthBundle {
   version: typeof AUTH_BUNDLE_VERSION;
   config: ConfigJson & { X_CLIENT_ID: string; mode: CliMode };
   tokens: StoredTokens;
+}
+
+export interface PersistAuthBundleOptions {
+  modeOverride?: CliMode;
+  saveConfig?: (config: ConfigJson) => void;
+  saveTokens?: (tokens: StoredTokens) => void;
 }
 
 export function isAuthExportFormat(value: string): value is AuthExportFormat {
@@ -123,6 +130,26 @@ export function applyAuthBundleJson(
   return applied;
 }
 
+export function persistAuthBundleJson(
+  json: string,
+  options: PersistAuthBundleOptions = {},
+): AuthBundle {
+  const bundle = parseAuthBundleJson(json);
+  const config = {
+    ...bundle.config,
+    mode: options.modeOverride ?? bundle.config.mode,
+  };
+  const persisted = createAuthBundle(config, bundle.tokens);
+  if (persisted.config.mode === "read-write") {
+    assertRequiredWriteScopes(persisted.tokens.scope);
+  }
+
+  (options.saveConfig ?? saveConfigJson)(persisted.config);
+  (options.saveTokens ?? saveTokens)(persisted.tokens);
+
+  return persisted;
+}
+
 export function renderAuthExport(format: AuthExportFormat): string {
   if (isRuntimeMcpServing()) {
     throw new Error("Auth export is disabled while serving MCP.");
@@ -134,7 +161,7 @@ export function renderAuthBundle(
   bundle: AuthBundle,
   format: AuthExportFormat,
 ): string {
-  if (format === "json") return JSON.stringify(bundle, null, 2);
+  if (format === "json") return JSON.stringify(bundle);
 
   const authJson = JSON.stringify(bundle);
   if (format === "codex") {

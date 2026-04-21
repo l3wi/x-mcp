@@ -1,6 +1,6 @@
 import { basename } from "path";
 
-type BinName = "x-cli";
+type BinName = "x-cli" | "x-mcp";
 type ExportFormat = "json" | "codex" | "claude";
 
 export interface PreparedArgv {
@@ -17,6 +17,7 @@ function resolveBinName(
   for (const path of [commandPath, invokedPath]) {
     const name = basename(path ?? "");
     if (name === "x-cli") return name;
+    if (name === "x-mcp") return name;
   }
   return null;
 }
@@ -33,8 +34,9 @@ export function resolveServeArgv(
   argv: string[],
   commandPath?: string,
 ): string[] {
-  if (resolveBinName(invokedPath, commandPath) === "x-cli" && argv.length === 0) {
-    return ["--mcp"];
+  const binName = resolveBinName(invokedPath, commandPath);
+  if (argv.length === 0) {
+    return binName === "x-mcp" ? ["--mcp"] : ["--help"];
   }
   return argv;
 }

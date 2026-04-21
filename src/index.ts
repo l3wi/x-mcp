@@ -56,8 +56,17 @@ async function main(): Promise<void> {
 
   setRuntimeMcpServing(servingMcp);
   const cli = Cli.create(cliName, {
-    version: "0.2.0",
+    version: "0.2.1",
     description: "MCP server and CLI for X/Twitter API v2",
+    sync: {
+      depth: 1,
+      include: ["skills/*"],
+      suggestions: [
+        "Use x-cli to check my X auth status and explain what permissions are available.",
+        "Use x-cli to search recent tweets about a topic.",
+        "Use x-cli to fetch a user timeline and summarize it.",
+      ],
+    },
   });
   const includeWrite = !servingMcp || canExposeMcpWriteTools();
 
@@ -67,6 +76,7 @@ async function main(): Promise<void> {
       includeLogin: !servingMcp,
       includeLogout: !servingMcp,
       includeExport: !servingMcp,
+      includeImport: !servingMcp,
     }),
   );
   cli.command(createTweetCommand({ includeWrite }));

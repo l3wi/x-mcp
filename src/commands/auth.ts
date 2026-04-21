@@ -1,4 +1,5 @@
 import { Cli, z } from "incur";
+import { readFile } from "fs/promises";
 import {
   envSchema,
   getConfigMode,
@@ -7,7 +8,7 @@ import {
   setConfigMode,
   type Env,
 } from "../lib/env.js";
-import { renderAuthExport } from "../lib/auth-bundle.js";
+import { persistAuthBundleJson, renderAuthExport } from "../lib/auth-bundle.js";
 import { assertRequiredWriteScopes, login, revokeToken } from "../lib/oauth.js";
 import { loadTokens, deleteTokens, saveTokens } from "../lib/tokens.js";
 
@@ -15,6 +16,13 @@ export interface AuthCommandOptions {
   includeLogin?: boolean;
   includeLogout?: boolean;
   includeExport?: boolean;
+  includeImport?: boolean;
+}
+
+export interface AuthImportInputOptions {
+  json?: string | undefined;
+  file?: string | undefined;
+  readStdin?: (() => Promise<string>) | undefined;
 }
 
 export function createAuthCommand(options: AuthCommandOptions = {}) {
@@ -22,6 +30,7 @@ export function createAuthCommand(options: AuthCommandOptions = {}) {
     includeLogin = true,
     includeLogout = true,
     includeExport = true,
+    includeImport = true,
   } = options;
   const auth = Cli.create("auth", {
     description: "Authentication commands",
@@ -111,6 +120,43 @@ export function createAuthCommand(options: AuthCommandOptions = {}) {
     });
   }
 
+  if (includeImport) {
+    auth.command("import", {
+      description: "Import an x-cli auth bundle into local config and tokens",
+      args: z.object({
+        json: z
+          .string()
+          .optional()
+          .describe("Auth bundle JSON. If omitted, reads from --file or stdin"),
+      }),
+      options: z.object({
+        file: z.string().optional().describe("Path to an auth bundle JSON file"),
+        mode: z
+          .enum(["read-only", "read-write"])
+          .optional()
+          .describe("Override imported CLI mode"),
+      }),
+      async run(c) {
+        const json = await readAuthImportInput({
+          json: c.args.json,
+          file: c.options.file,
+        });
+        const bundle = persistAuthBundleJson(json, {
+          modeOverride: c.options.mode,
+        });
+
+        return {
+          status: "imported",
+          mode: bundle.config.mode,
+          client_id_configured: true,
+          client_secret_configured: !!bundle.config.X_CLIENT_SECRET,
+          scope: bundle.tokens.scope,
+          expires_at: new Date(bundle.tokens.expires_at * 1000).toISOString(),
+        };
+      },
+    });
+  }
+
   return auth;
 }
 
@@ -139,4 +185,46 @@ export async function logoutWithOptionalRevocation(env: Partial<Env>) {
     local_tokens: "deleted",
     remote_revocation: remoteRevocation,
   };
+}
+
+export async function readAuthImportInput(
+  options: AuthImportInputOptions,
+): Promise<string> {
+  const sources = [
+    options.json !== undefined,
+    options.file !== undefined,
+  ].filter(Boolean).length;
+  if (sources > 1) {
+    throw new Error(
+      "Pass auth JSON either as an argument, via --file, or via stdin.",
+    );
+  }
+
+  if (options.json !== undefined) return options.json;
+  if (options.file !== undefined) return readFile(options.file, "utf8");
+
+  const readStdin = options.readStdin ?? readStdinText;
+  const input = await readStdin();
+  if (!input.trim()) {
+    throw new Error(
+      "Missing auth JSON. Pass JSON, use --file, or pipe `x-cli auth export json` into this command.",
+    );
+  }
+  return input;
+}
+
+async function readStdinText(): Promise<string> {
+  const stdin = process.stdin as NodeJS.ReadStream;
+  if (stdin.isTTY) {
+    throw new Error(
+      "Missing auth JSON. Pass JSON, use --file, or pipe `x-cli auth export json` into this command.",
+    );
+  }
+
+  stdin.setEncoding("utf8");
+  let data = "";
+  for await (const chunk of stdin) {
+    data += chunk;
+  }
+  return data;
 }

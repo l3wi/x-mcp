@@ -1,6 +1,9 @@
 # x-cli
 
-`x-cli` is a Node.js CLI and MCP stdio server for X/Twitter API v2. It can read timelines, search tweets, post, like, retweet, manage bookmarks, and expose the same command surface to MCP-capable agents.
+`x-cli` is a Node.js CLI for X/Twitter API v2, with a companion `x-mcp`
+stdio server for MCP-capable agents. It can read timelines, search tweets,
+post, like, retweet, manage bookmarks, and expose the same command surface to
+agents.
 
 Built with [incur](https://github.com/wevm/incur), TypeScript, and OAuth 2.0 PKCE.
 
@@ -20,7 +23,9 @@ Run once without installing:
 npx @lewi/x-cli --help
 ```
 
-Running `x-cli` with no arguments starts the MCP stdio server. Use `x-cli` as the command in MCP clients that support stdio servers.
+Running `x-cli` with no arguments prints CLI help. Use `x-mcp` as the command in
+MCP clients that support stdio servers; bare `x-mcp` starts the MCP stdio
+server.
 
 In MCP mode, local administration commands that can mutate auth or config state
 are not exposed as tools. Read-only mode also hides write tools; switch to
@@ -128,16 +133,16 @@ Default output is TOON. Incur also provides `--format toon|json|yaml|md|jsonl`, 
 
 ## Agent Integration
 
-Register `x-cli` as an MCP stdio server:
+Register the MCP stdio server:
 
 ```bash
-x-cli mcp add
+x-mcp mcp add
 ```
 
 Or configure the direct server command:
 
 ```bash
-x-cli
+x-mcp
 ```
 
 Export local auth for MCP server environments from normal CLI mode:
@@ -151,18 +156,62 @@ x-cli auth export claude
 `auth export` includes OAuth credentials and tokens. It is blocked while `x-cli` is serving MCP so an agent cannot ask the server to reveal its own refresh token. Prefer passing exported auth through `X_CLI_AUTH_JSON`:
 
 ```bash
-X_CLI_AUTH_JSON='<auth-bundle-json>' x-cli
+X_CLI_AUTH_JSON='<auth-bundle-json>' x-mcp
 ```
 
 `--auth-json '<auth-bundle-json>'` is still accepted for local testing, but avoid it in shared systems because process arguments can leak through shell history, logs, and process listings.
 This flag is deprecated; prefer `X_CLI_AUTH_JSON` or a client-managed secret
 store for MCP server configuration.
 
+Import an exported JSON bundle into local config and token files:
+
+```bash
+x-cli auth export json > x-cli-auth.json
+x-cli auth import --file x-cli-auth.json
+x-cli auth import '<one-line-auth-json>'
+x-cli auth import "$(x-cli auth export json)"
+x-cli auth export json | x-cli auth import
+```
+
+Use `--mode read-only` or `--mode read-write` to override the mode stored in
+the bundle. Read-write imports are rejected unless the imported tokens include
+the required write scopes. Quote JSON when passing it as an argument so your
+shell keeps it as one value.
+
 Machine-readable manifests:
 
 ```bash
 x-cli --llms
 x-cli --llms-full
+```
+
+### Install as an Agent Skill
+
+Install the curated `x-cli` skill from GitHub with skills.sh:
+
+```bash
+npx skills add l3wi/x-mcp
+```
+
+If your skills CLI asks for a nested skill name, use:
+
+```bash
+npx skills add l3wi/x-mcp --skill x-cli
+```
+
+skills.sh collects anonymous install telemetry for discovery and leaderboard
+features. To opt out for a single install:
+
+```bash
+DISABLE_TELEMETRY=1 npx skills add l3wi/x-mcp
+```
+
+If `x-cli` is already installed locally, you can also generate and sync
+command-specific agent skills from the current CLI definitions:
+
+```bash
+x-cli skills add
+x-cli skills add --no-global
 ```
 
 ## Command Reference
@@ -173,6 +222,7 @@ x-cli --llms-full
 | `auth logout` | Revoke tokens when possible and always delete local tokens |
 | `auth status` | Show token expiry and scopes |
 | `auth export <json\|codex\|claude>` | Export portable MCP auth bundle or client config |
+| `auth import [json]` | Import an auth bundle into local config and tokens |
 | `config show` | Show current CLI configuration |
 | `config mode <read-only\|read-write>` | Switch read/write mode |
 | `tweet post <text>` | Post a tweet |

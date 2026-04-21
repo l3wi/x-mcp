@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { logoutWithOptionalRevocation } from "../src/commands/auth.js";
+import { readAuthImportInput, logoutWithOptionalRevocation } from "../src/commands/auth.js";
 import { clearRuntimeAuth, getRuntimeTokens, setRuntimeTokens } from "../src/lib/runtime.js";
 
 const originalFetch = globalThis.fetch;
@@ -11,6 +11,26 @@ afterEach(() => {
 });
 
 describe("auth command behavior", () => {
+  test("auth import reads direct JSON before stdin", async () => {
+    await expect(
+      readAuthImportInput({
+        json: "{\"type\":\"x-cli-auth\"}",
+        readStdin: async () => {
+          throw new Error("stdin should not be read");
+        },
+      }),
+    ).resolves.toBe("{\"type\":\"x-cli-auth\"}");
+  });
+
+  test("auth import rejects ambiguous file and direct JSON input", async () => {
+    await expect(
+      readAuthImportInput({
+        json: "{}",
+        file: "auth.json",
+      }),
+    ).rejects.toThrow("Pass auth JSON either as an argument, via --file, or via stdin.");
+  });
+
   test("logout clears local runtime tokens even when credentials are missing", async () => {
     setRuntimeTokens({
       access_token: "access",
