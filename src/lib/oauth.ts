@@ -3,6 +3,11 @@ import { spawn } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { getConfigMode, type CliMode, type Env } from "./env.js";
 import { saveTokens, loadTokens, isExpired, type StoredTokens } from "./tokens.js";
+import {
+  WRITE_SCOPES,
+  assertRequiredWriteScopes,
+  hasRequiredWriteScopes,
+} from "./scopes.js";
 
 const AUTH_URL = "https://x.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.x.com/2/oauth2/token";
@@ -16,12 +21,6 @@ const READ_SCOPES = [
   "like.read",
   "bookmark.read",
   "offline.access",
-];
-
-const WRITE_SCOPES = [
-  "tweet.write",
-  "like.write",
-  "bookmark.write",
 ];
 
 type TokenTypeHint = "access_token" | "refresh_token";
@@ -45,18 +44,6 @@ function scopesForMode(mode: CliMode): string {
     ? [...READ_SCOPES, ...WRITE_SCOPES]
     : READ_SCOPES;
   return scopes.join(" ");
-}
-
-function hasRequiredWriteScopes(scope: string): boolean {
-  const granted = new Set(scope.split(/\s+/).filter(Boolean));
-  return WRITE_SCOPES.every((requiredScope) => granted.has(requiredScope));
-}
-
-export function assertRequiredWriteScopes(scope: string): void {
-  if (hasRequiredWriteScopes(scope)) return;
-  throw new Error(
-    "X did not grant all required write scopes. Re-run `x-cli auth login --read-write` after checking your app permissions.",
-  );
 }
 
 function buildAuthUrl(
@@ -264,11 +251,14 @@ async function revokeOAuthToken(
     ...(env.X_CLIENT_SECRET ? {} : { client_id: env.X_CLIENT_ID }),
   });
 
-  await fetcher(REVOKE_URL, {
+  const resp = await fetcher(REVOKE_URL, {
     method: "POST",
     headers: tokenHeaders(env),
     body,
   });
+  if (!resp.ok) {
+    throw new Error(`Token revocation failed (${resp.status}).`);
+  }
 }
 
 async function revokeStoredTokens(
@@ -280,7 +270,11 @@ async function revokeStoredTokens(
     revokeOAuthToken(env, tokens.access_token, "access_token", fetcher),
     revokeOAuthToken(env, tokens.refresh_token, "refresh_token", fetcher),
   ];
-  await Promise.allSettled(revocations);
+  const results = await Promise.allSettled(revocations);
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    throw new Error("One or more token revocations failed.");
+  }
 }
 
 export async function revokeToken(env: Env): Promise<void> {
@@ -304,6 +298,7 @@ export async function getAccessToken(env: Env): Promise<string> {
 
 // Re-export for convenience
 export {
+  assertRequiredWriteScopes,
   buildAuthUrl as _buildAuthUrl,
   generatePKCE as _generatePKCE,
   hasRequiredWriteScopes as _hasRequiredWriteScopes,

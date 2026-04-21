@@ -22,6 +22,11 @@ npx @lewi/x-cli --help
 
 Running `x-cli` with no arguments starts the MCP stdio server. Use `x-cli` as the command in MCP clients that support stdio servers.
 
+In MCP mode, local administration commands that can mutate auth or config state
+are not exposed as tools. Read-only mode also hides write tools; switch to
+`read-write` mode with tokens that include write scopes before starting the MCP
+server if you want posting, liking, retweeting, or bookmark mutation tools.
+
 ## CLI Setup
 
 ### 1. Create an X Developer App
@@ -61,7 +66,10 @@ x-cli config show
 x-cli config mode read-write
 ```
 
-If existing tokens do not include write scopes, switching to `read-write` re-runs OAuth and only persists the new mode after X grants the required write scopes. Disable writes again with:
+Run `x-cli auth login --read-write` if you are not already logged in. If
+existing tokens do not include write scopes, switching to `read-write` re-runs
+OAuth and only persists the new mode after X grants the required write scopes.
+Disable writes again with:
 
 ```bash
 x-cli config mode read-only
@@ -147,6 +155,8 @@ X_CLI_AUTH_JSON='<auth-bundle-json>' x-cli
 ```
 
 `--auth-json '<auth-bundle-json>'` is still accepted for local testing, but avoid it in shared systems because process arguments can leak through shell history, logs, and process listings.
+This flag is deprecated; prefer `X_CLI_AUTH_JSON` or a client-managed secret
+store for MCP server configuration.
 
 Machine-readable manifests:
 
@@ -171,7 +181,7 @@ x-cli --llms-full
 | `tweet reply <id> <text>` | Reply to a tweet |
 | `tweet quote <id> <text>` | Quote tweet |
 | `tweet search <query>` | Search recent tweets |
-| `tweet metrics <id>` | Get engagement metrics |
+| `tweet metrics <id>` | Get public engagement metrics |
 | `tweet thread <id>` | Fetch compact context: target, root, and quoted tweets |
 | `tweet context <id>` | Fetch target plus recent conversation tweets |
 | `user get <username>` | Look up a user profile |

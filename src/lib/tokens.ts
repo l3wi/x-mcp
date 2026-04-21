@@ -1,7 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, chmodSync } from "fs";
+import { existsSync, unlinkSync } from "fs";
 import { homedir } from "os";
-import { join, dirname } from "path";
-import { clearRuntimeTokens, getRuntimeTokens, hasRuntimeTokens, setRuntimeTokens } from "./runtime.js";
+import { join } from "path";
+import {
+  clearRuntimeTokens,
+  getRuntimeTokens,
+  hasRuntimeTokens,
+  setRuntimeTokens,
+} from "./runtime.js";
+import { readPrivateTextFile, writePrivateTextFile } from "./private-files.js";
 
 export interface StoredTokens {
   access_token: string;
@@ -17,7 +23,9 @@ export function loadTokens(): StoredTokens | null {
   if (runtimeTokens) return runtimeTokens;
   if (!existsSync(TOKEN_PATH)) return null;
   try {
-    return JSON.parse(readFileSync(TOKEN_PATH, "utf-8"));
+    const contents = readPrivateTextFile(TOKEN_PATH);
+    if (!contents) return null;
+    return validateStoredTokens(JSON.parse(contents));
   } catch {
     return null;
   }
@@ -28,10 +36,7 @@ export function saveTokens(tokens: StoredTokens): void {
     setRuntimeTokens(tokens);
     return;
   }
-  const dir = dirname(TOKEN_PATH);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
-  writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2), { mode: 0o600 });
-  chmodSync(TOKEN_PATH, 0o600);
+  writePrivateTextFile(TOKEN_PATH, JSON.stringify(tokens, null, 2));
 }
 
 export function deleteTokens(): void {
@@ -44,4 +49,25 @@ export function deleteTokens(): void {
 
 export function isExpired(tokens: StoredTokens): boolean {
   return Date.now() / 1000 >= tokens.expires_at - 60; // 60s buffer
+}
+
+function validateStoredTokens(value: unknown): StoredTokens | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.access_token !== "string" || raw.access_token.length === 0) {
+    return null;
+  }
+  if (typeof raw.refresh_token !== "string" || raw.refresh_token.length === 0) {
+    return null;
+  }
+  if (typeof raw.expires_at !== "number" || !Number.isFinite(raw.expires_at)) {
+    return null;
+  }
+  if (typeof raw.scope !== "string") return null;
+  return {
+    access_token: raw.access_token,
+    refresh_token: raw.refresh_token,
+    expires_at: raw.expires_at,
+    scope: raw.scope,
+  };
 }

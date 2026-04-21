@@ -9,5 +9,13 @@ export function parseTweetId(input: string): string {
 }
 
 export function stripAt(username: string): string {
-  return username.startsWith("@") ? username.slice(1) : username;
+  return parseUsername(username);
+}
+
+export function parseUsername(username: string): string {
+  const stripped = username.trim().replace(/^@/, "");
+  if (!/^[A-Za-z0-9_]{1,15}$/.test(stripped)) {
+    throw new Error(`Invalid X username: ${username}`);
+  }
+  return stripped;
 }

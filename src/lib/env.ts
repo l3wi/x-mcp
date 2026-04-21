@@ -1,16 +1,28 @@
 import { z } from "incur";
 import { config } from "dotenv";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "fs";
+import { existsSync } from "fs";
 import { homedir } from "os";
-import { dirname, join } from "path";
+import { join } from "path";
 import { createInterface } from "readline/promises";
 import { getRuntimeConfig } from "./runtime.js";
+import { loadTokens } from "./tokens.js";
+import { hasRequiredWriteScopes } from "./scopes.js";
+import { readPrivateTextFile, writePrivateTextFile } from "./private-files.js";
 
 export function loadDotenv() {
   loadConfigJson();
   const configPath = join(homedir(), ".x-cli", ".env");
-  if (existsSync(configPath)) config({ path: configPath });
-  config(); // cwd .env
+  if (existsSync(configPath)) {
+    readPrivateTextFile(configPath);
+    config({ path: configPath });
+  }
+  const cwdEnvPath = join(process.cwd(), ".env");
+  if (existsSync(cwdEnvPath)) {
+    process.stderr.write(
+      "Warning: loading cwd .env is deprecated for x-cli. Prefer ~/.x-cli/.env or ~/.x-cli/config.json.\n",
+    );
+    config({ path: cwdEnvPath });
+  }
 }
 
 export interface ConfigJson {
@@ -53,7 +65,9 @@ function applyConfigToProcessEnv(config: ConfigJson): void {
 export function loadConfigJson(path: string = CONFIG_PATH): ConfigJson | null {
   if (!existsSync(path)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf-8")) as ConfigJson;
+    const contents = readPrivateTextFile(path);
+    if (!contents) return null;
+    const parsed = JSON.parse(contents) as ConfigJson;
     const cleaned = cleanConfig(parsed);
     applyConfigToProcessEnv(cleaned);
     return cleaned;
@@ -62,12 +76,12 @@ export function loadConfigJson(path: string = CONFIG_PATH): ConfigJson | null {
   }
 }
 
-export function saveConfigJson(config: ConfigJson, path: string = CONFIG_PATH): void {
+export function saveConfigJson(
+  config: ConfigJson,
+  path: string = CONFIG_PATH,
+): void {
   const cleaned = cleanConfig(config);
-  const dir = dirname(path);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
-  writeFileSync(path, JSON.stringify(cleaned, null, 2), { mode: 0o600 });
-  chmodSync(path, 0o600);
+  writePrivateTextFile(path, JSON.stringify(cleaned, null, 2));
   applyConfigToProcessEnv(cleaned);
 }
 
@@ -91,9 +105,15 @@ export function setConfigMode(
 }
 
 export function requireReadWriteMode(path: string = CONFIG_PATH): void {
-  if (getConfigMode(path) === "read-write") return;
+  if (getConfigMode(path) !== "read-write") {
+    throw new Error(
+      "This command requires read-write mode. Run `x-cli config mode read-write` to enable write actions.",
+    );
+  }
+  const tokens = loadTokens();
+  if (tokens && hasRequiredWriteScopes(tokens.scope)) return;
   throw new Error(
-    "This command requires read-write mode. Run `x-cli config mode read-write` to enable write actions.",
+    "This command requires OAuth tokens with write scopes. Run `x-cli auth login --read-write` first.",
   );
 }
 

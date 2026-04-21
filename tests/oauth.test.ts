@@ -105,6 +105,26 @@ describe("revokeStoredTokens", () => {
       "client-id",
     ]);
   });
+
+  test("fails when revocation endpoint rejects a token", async () => {
+    const fetcher = async (): Promise<Response> =>
+      new Response("{}", { status: 500 });
+
+    await expect(
+      _revokeStoredTokens(
+        {
+          X_CLIENT_ID: "client-id",
+        },
+        {
+          access_token: "access-token",
+          refresh_token: "refresh-token",
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          scope: "tweet.read offline.access",
+        },
+        fetcher,
+      ),
+    ).rejects.toThrow("revocations failed");
+  });
 });
 
 describe("write scopes", () => {

@@ -11,6 +11,7 @@ import { loadTokens, saveTokens, type StoredTokens } from "../src/lib/tokens.js"
 
 const originalClientId = process.env.X_CLIENT_ID;
 const originalClientSecret = process.env.X_CLIENT_SECRET;
+const originalAuthJson = process.env.X_CLI_AUTH_JSON;
 
 function tokens(): StoredTokens {
   return {
@@ -18,6 +19,13 @@ function tokens(): StoredTokens {
     refresh_token: "refresh",
     expires_at: 1_900_000_000,
     scope: "tweet.read users.read offline.access",
+  };
+}
+
+function writeTokens(): StoredTokens {
+  return {
+    ...tokens(),
+    scope: "tweet.read users.read offline.access tweet.write like.write bookmark.write",
   };
 }
 
@@ -31,6 +39,11 @@ function restoreEnv() {
     delete process.env.X_CLIENT_SECRET;
   } else {
     process.env.X_CLIENT_SECRET = originalClientSecret;
+  }
+  if (originalAuthJson === undefined) {
+    delete process.env.X_CLI_AUTH_JSON;
+  } else {
+    process.env.X_CLI_AUTH_JSON = originalAuthJson;
   }
 }
 
@@ -91,17 +104,19 @@ describe("auth bundle", () => {
         X_CLIENT_SECRET: "secret",
         mode: "read-only",
       },
-      tokens(),
+      writeTokens(),
     );
+    process.env.X_CLI_AUTH_JSON = JSON.stringify(bundle);
 
     applyAuthBundleJson(JSON.stringify(bundle), "read-write");
 
     expect(process.env.X_CLIENT_ID).toBe("client");
     expect(process.env.X_CLIENT_SECRET).toBe("secret");
     expect(getConfigMode()).toBe("read-write");
-    expect(loadTokens()).toEqual(tokens());
+    expect(process.env.X_CLI_AUTH_JSON).toBeUndefined();
+    expect(loadTokens()).toEqual(writeTokens());
 
-    saveTokens({ ...tokens(), access_token: "new-access" });
+    saveTokens({ ...writeTokens(), access_token: "new-access" });
 
     expect(loadTokens()?.access_token).toBe("new-access");
   });
@@ -111,6 +126,20 @@ describe("auth bundle", () => {
 
     expect(() => renderAuthExport("json")).toThrow(
       "Auth export is disabled while serving MCP.",
+    );
+  });
+
+  test("rejects read-write runtime override without write token scopes", () => {
+    const bundle = createAuthBundle(
+      {
+        X_CLIENT_ID: "client",
+        mode: "read-only",
+      },
+      tokens(),
+    );
+
+    expect(() => applyAuthBundleJson(JSON.stringify(bundle), "read-write")).toThrow(
+      "did not grant all required write scopes",
     );
   });
 });
