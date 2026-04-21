@@ -144,6 +144,6 @@ function appendDisabledCommands(
     "Disabled Write Commands:",
     ...disabledCommands.map((command) => `  - ${command}`),
     "",
-    "Enable with `x-mcp config mode read-write`.",
+    "Enable with `x-cli config mode read-write`.",
   ].join("\n");
 }

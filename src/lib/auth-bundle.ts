@@ -12,7 +12,7 @@ import {
   setRuntimeTokens,
 } from "./runtime.js";
 
-const AUTH_BUNDLE_TYPE = "x-mcp-auth";
+const AUTH_BUNDLE_TYPE = "x-cli-auth";
 const AUTH_BUNDLE_VERSION = 1;
 const EXPORT_FORMATS = ["json", "codex", "claude"] as const;
 
@@ -34,10 +34,10 @@ export function createAuthBundle(
   tokens: StoredTokens | null,
 ): AuthBundle {
   if (!config?.X_CLIENT_ID) {
-    throw new Error("Missing X OAuth config. Run `x-mcp auth login` first.");
+    throw new Error("Missing X OAuth config. Run `x-cli auth login` first.");
   }
   if (!tokens) {
-    throw new Error("Missing X OAuth tokens. Run `x-mcp auth login` first.");
+    throw new Error("Missing X OAuth tokens. Run `x-cli auth login` first.");
   }
 
   return {
@@ -68,11 +68,11 @@ export function parseAuthBundleJson(json: string): AuthBundle {
   try {
     parsed = JSON.parse(json);
   } catch {
-    throw new Error("Invalid auth JSON. Expected an x-mcp auth bundle.");
+    throw new Error("Invalid auth JSON. Expected an x-cli auth bundle.");
   }
 
   if (!parsed || typeof parsed !== "object") {
-    throw new Error("Invalid auth JSON. Expected an x-mcp auth bundle object.");
+    throw new Error("Invalid auth JSON. Expected an x-cli auth bundle object.");
   }
 
   const bundle = parsed as {
@@ -82,7 +82,7 @@ export function parseAuthBundleJson(json: string): AuthBundle {
     tokens?: unknown;
   };
   if (bundle.type !== AUTH_BUNDLE_TYPE || bundle.version !== AUTH_BUNDLE_VERSION) {
-    throw new Error("Invalid auth JSON. Expected type `x-mcp-auth` version 1.");
+    throw new Error("Invalid auth JSON. Expected type `x-cli-auth` version 1.");
   }
   return createAuthBundle(
     validateConfig(bundle.config),
@@ -126,9 +126,9 @@ export function renderAuthBundle(
   const authJson = JSON.stringify(bundle);
   if (format === "codex") {
     return [
-      "[mcp_servers.x_mcp]",
-      'command = "x-mcp"',
-      `env = { X_MCP_AUTH_JSON = ${JSON.stringify(authJson)} }`,
+      "[mcp_servers.x_cli]",
+      'command = "x-cli"',
+      `env = { X_CLI_AUTH_JSON = ${JSON.stringify(authJson)} }`,
       "startup_timeout_sec = 20",
       "tool_timeout_sec = 45",
       "enabled = true",
@@ -138,11 +138,11 @@ export function renderAuthBundle(
   return JSON.stringify(
     {
       mcpServers: {
-        "x-mcp": {
+        "x-cli": {
           type: "stdio",
-          command: "x-mcp",
+          command: "x-cli",
           env: {
-            X_MCP_AUTH_JSON: authJson,
+            X_CLI_AUTH_JSON: authJson,
           },
         },
       },

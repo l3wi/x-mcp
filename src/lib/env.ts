@@ -8,7 +8,7 @@ import { getRuntimeConfig } from "./runtime.js";
 
 export function loadDotenv() {
   loadConfigJson();
-  const configPath = join(homedir(), ".x-mcp", ".env");
+  const configPath = join(homedir(), ".x-cli", ".env");
   if (existsSync(configPath)) config({ path: configPath });
   config(); // cwd .env
 }
@@ -19,7 +19,7 @@ export interface ConfigJson {
   mode?: CliMode;
 }
 
-const CONFIG_PATH = join(homedir(), ".x-mcp", "config.json");
+const CONFIG_PATH = join(homedir(), ".x-cli", "config.json");
 const DEFAULT_MODE = "read-only";
 const MODES = ["read-only", "read-write"] as const;
 
@@ -93,7 +93,7 @@ export function setConfigMode(
 export function requireReadWriteMode(path: string = CONFIG_PATH): void {
   if (getConfigMode(path) === "read-write") return;
   throw new Error(
-    "This command requires read-write mode. Run `x-mcp config mode read-write` to enable write actions.",
+    "This command requires read-write mode. Run `x-cli config mode read-write` to enable write actions.",
   );
 }
 
@@ -121,7 +121,7 @@ export async function resolveLoginEnv(): Promise<Env> {
   const stdout = process.stdout as NodeJS.WriteStream;
   if (!stdin.isTTY || !stdout.isTTY) {
     throw new Error(
-      "Missing X OAuth credentials. Run `x-mcp auth login` in an interactive terminal or create ~/.x-mcp/config.json.",
+      "Missing X OAuth credentials. Run `x-cli auth login` in an interactive terminal or create ~/.x-cli/config.json.",
     );
   }
 
@@ -153,7 +153,7 @@ export async function resolveLoginEnv(): Promise<Env> {
       ...env,
       mode: getConfigMode(),
     });
-    console.log("Saved credentials to ~/.x-mcp/config.json.\n");
+    console.log("Saved credentials to ~/.x-cli/config.json.\n");
     return env;
   } finally {
     rl.close();

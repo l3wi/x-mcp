@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   const cliName = resolveCliName(process.argv[1], process.env._);
   const prepared = prepareServeArgv(process.argv[1], process.argv.slice(2), process.env._);
   setRuntimeMcpServing(prepared.argv.includes("--mcp"));
-  const authJson = prepared.authJson ?? process.env.X_MCP_AUTH_JSON;
+  const authJson = prepared.authJson ?? process.env.X_CLI_AUTH_JSON;
   if (authJson) {
     applyAuthBundleJson(authJson, prepared.mcpMode);
   } else if (prepared.mcpMode) {

@@ -51,7 +51,7 @@ describe("auth bundle", () => {
         tokens(),
       ),
     ).toEqual({
-      type: "x-mcp-auth",
+      type: "x-cli-auth",
       version: 1,
       config: {
         X_CLIENT_ID: "client",
@@ -66,9 +66,9 @@ describe("auth bundle", () => {
     const bundle = createAuthBundle({ X_CLIENT_ID: "client" }, tokens());
     const output = renderAuthBundle(bundle, "codex");
 
-    expect(output).toContain("[mcp_servers.x_mcp]");
-    expect(output).toContain('command = "x-mcp"');
-    expect(output).toContain("X_MCP_AUTH_JSON");
+    expect(output).toContain("[mcp_servers.x_cli]");
+    expect(output).toContain('command = "x-cli"');
+    expect(output).toContain("X_CLI_AUTH_JSON");
     expect(output).toContain("startup_timeout_sec = 20");
   });
 
@@ -78,9 +78,9 @@ describe("auth bundle", () => {
       mcpServers: Record<string, { command: string; env: Record<string, string> }>;
     };
 
-    expect(output.mcpServers["x-mcp"]?.command).toBe("x-mcp");
-    expect(output.mcpServers["x-mcp"]?.env.X_MCP_AUTH_JSON).toContain(
-      "\"type\":\"x-mcp-auth\"",
+    expect(output.mcpServers["x-cli"]?.command).toBe("x-cli");
+    expect(output.mcpServers["x-cli"]?.env.X_CLI_AUTH_JSON).toContain(
+      "\"type\":\"x-cli-auth\"",
     );
   });
 

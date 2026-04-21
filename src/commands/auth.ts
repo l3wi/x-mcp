@@ -54,7 +54,7 @@ auth.command("status", {
     const tokens = loadTokens();
     const mode = getConfigMode();
     if (!tokens) {
-      return { status: "not_logged_in", mode, message: "Run `x-mcp auth login` to authenticate." };
+      return { status: "not_logged_in", mode, message: "Run `x-cli auth login` to authenticate." };
     }
 
     const now = Date.now() / 1000;

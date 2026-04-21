@@ -55,7 +55,7 @@ function hasRequiredWriteScopes(scope: string): boolean {
 export function assertRequiredWriteScopes(scope: string): void {
   if (hasRequiredWriteScopes(scope)) return;
   throw new Error(
-    "X did not grant all required write scopes. Re-run `x-mcp auth login --read-write` after checking your app permissions.",
+    "X did not grant all required write scopes. Re-run `x-cli auth login --read-write` after checking your app permissions.",
   );
 }
 
@@ -215,7 +215,7 @@ export async function login(
 export async function refreshAccessToken(env: Env): Promise<StoredTokens> {
   const current = loadTokens();
   if (!current?.refresh_token) {
-    throw new Error("No refresh token found. Run `x-mcp auth login` first.");
+    throw new Error("No refresh token found. Run `x-cli auth login` first.");
   }
 
   const body = new URLSearchParams({
@@ -293,7 +293,7 @@ export async function revokeToken(env: Env): Promise<void> {
 export async function getAccessToken(env: Env): Promise<string> {
   const tokens = loadTokens();
   if (!tokens) {
-    throw new Error("Not logged in. Run `x-mcp auth login` first.");
+    throw new Error("Not logged in. Run `x-cli auth login` first.");
   }
   if (isExpired(tokens)) {
     const refreshed = await refreshAccessToken(env);

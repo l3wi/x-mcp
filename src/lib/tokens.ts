@@ -10,7 +10,7 @@ export interface StoredTokens {
   scope: string;
 }
 
-const TOKEN_PATH = join(homedir(), ".x-mcp", "tokens.json");
+const TOKEN_PATH = join(homedir(), ".x-cli", "tokens.json");
 
 export function loadTokens(): StoredTokens | null {
   const runtimeTokens = getRuntimeTokens();

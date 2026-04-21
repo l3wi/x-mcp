@@ -35,9 +35,9 @@ describe("formatHelpForMode", () => {
   test("filters top-level write commands in read-only mode", () => {
     const output = formatHelpForMode(
       [
-        "x-mcp@0.2.0 - CLI",
+        "x-cli@0.2.0 - CLI",
         "",
-        "Usage: x-mcp <command>",
+        "Usage: x-cli <command>",
         "",
         "Commands:",
         "  auth     Authentication commands",
@@ -57,16 +57,15 @@ describe("formatHelpForMode", () => {
     expect(output).toContain("- tweet post");
     expect(output).toContain("- me bookmark");
     expect(output).toContain("- like");
-    expect(output).toContain("Enable with `x-mcp config mode read-write`");
-    expect(output).not.toContain("x-cli");
+    expect(output).toContain("Enable with `x-cli config mode read-write`");
   });
 
   test("filters group write commands in read-only mode", () => {
     const output = formatHelpForMode(
       [
-        "x-mcp tweet - Tweet operations",
+        "x-cli tweet - Tweet operations",
         "",
-        "Usage: x-mcp tweet <command>",
+        "Usage: x-cli tweet <command>",
         "",
         "Commands:",
         "  context  Fetch context",
@@ -94,9 +93,9 @@ describe("formatHelpForMode", () => {
   test("annotates direct disabled command help in read-only mode", () => {
     const output = formatHelpForMode(
       [
-        "x-mcp me bookmark - Bookmark a tweet",
+        "x-cli me bookmark - Bookmark a tweet",
         "",
-        "Usage: x-mcp me bookmark <id>",
+        "Usage: x-cli me bookmark <id>",
         "",
         "Arguments:",
         "  id  Tweet ID or URL",
@@ -104,16 +103,16 @@ describe("formatHelpForMode", () => {
       { argv: ["me", "bookmark", "--help"], mode: "read-only" },
     );
 
-    expect(output).toContain("Usage: x-mcp me bookmark <id>");
+    expect(output).toContain("Usage: x-cli me bookmark <id>");
     expect(output).toContain("Disabled Write Commands:");
     expect(output).toContain("- me bookmark");
   });
 
   test("does not filter help in read-write mode", () => {
     const help = [
-      "x-mcp me - Self operations",
+      "x-cli me - Self operations",
       "",
-      "Usage: x-mcp me <command>",
+      "Usage: x-cli me <command>",
       "",
       "Commands:",
       "  bookmark    Bookmark a tweet",
@@ -130,7 +129,7 @@ describe("stripGlobalOptions", () => {
     expect(
       stripGlobalOptions(
         [
-          "Usage: x-mcp auth login",
+          "Usage: x-cli auth login",
           "",
           "Options:",
           "  --read-write",
@@ -140,6 +139,6 @@ describe("stripGlobalOptions", () => {
           "  --help",
         ].join("\n"),
       ),
-    ).toBe(["Usage: x-mcp auth login", "", "Options:", "  --read-write"].join("\n"));
+    ).toBe(["Usage: x-cli auth login", "", "Options:", "  --read-write"].join("\n"));
   });
 });

@@ -1,6 +1,6 @@
-# x-mcp
+# x-cli
 
-`x-mcp` is a Node.js CLI and MCP stdio server for X/Twitter API v2. It can read timelines, search tweets, post, like, retweet, manage bookmarks, and expose the same command surface to MCP-capable agents.
+`x-cli` is a Node.js CLI and MCP stdio server for X/Twitter API v2. It can read timelines, search tweets, post, like, retweet, manage bookmarks, and expose the same command surface to MCP-capable agents.
 
 Built with [incur](https://github.com/wevm/incur), TypeScript, and OAuth 2.0 PKCE.
 
@@ -9,18 +9,18 @@ Built with [incur](https://github.com/wevm/incur), TypeScript, and OAuth 2.0 PKC
 Requires Node.js 20 or newer.
 
 ```bash
-npm install -g x-mcp
-x-mcp --help
-x-mcp auth login
+npm install -g @lewi/x-cli
+x-cli --help
+x-cli auth login
 ```
 
 Run once without installing:
 
 ```bash
-npx x-mcp --help
+npx @lewi/x-cli --help
 ```
 
-Running `x-mcp` with no arguments starts the MCP stdio server. Use `x-mcp` as the command in MCP clients that support stdio servers.
+Running `x-cli` with no arguments starts the MCP stdio server. Use `x-cli` as the command in MCP clients that support stdio servers.
 
 ## CLI Setup
 
@@ -37,12 +37,12 @@ Running `x-mcp` with no arguments starts the MCP stdio server. Use `x-mcp` as th
 ### 2. Log In
 
 ```bash
-x-mcp auth login
+x-cli auth login
 ```
 
-If credentials are not already configured, `x-mcp auth login` prompts for them. The CLI creates `~/.x-mcp`, saves credentials to `~/.x-mcp/config.json` with owner-only permissions, opens your browser, and stores tokens at `~/.x-mcp/tokens.json`.
+If credentials are not already configured, `x-cli auth login` prompts for them. The CLI creates `~/.x-cli`, saves credentials to `~/.x-cli/config.json` with owner-only permissions, opens your browser, and stores tokens at `~/.x-cli/tokens.json`.
 
-You can also create `~/.x-mcp/config.json` manually:
+You can also create `~/.x-cli/config.json` manually:
 
 ```json
 {
@@ -57,14 +57,14 @@ For public/native apps, omit `X_CLIENT_SECRET`.
 The CLI defaults to `read-only` mode. Enable write actions only when you need posting, deleting, liking, retweeting, or bookmarking:
 
 ```bash
-x-mcp config show
-x-mcp config mode read-write
+x-cli config show
+x-cli config mode read-write
 ```
 
 If existing tokens do not include write scopes, switching to `read-write` re-runs OAuth and only persists the new mode after X grants the required write scopes. Disable writes again with:
 
 ```bash
-x-mcp config mode read-only
+x-cli config mode read-only
 ```
 
 ## CLI Usage
@@ -72,36 +72,36 @@ x-mcp config mode read-only
 ### Tweets
 
 ```bash
-x-mcp tweet post "Hello world"
-x-mcp tweet post --poll "Yes,No" "Do you like polls?"
-x-mcp tweet get <id-or-url>
-x-mcp tweet delete <id-or-url>
-x-mcp tweet reply <id-or-url> "nice post"
-x-mcp tweet quote <id-or-url> "this is important"
-x-mcp tweet search "machine learning" --limit 20
-x-mcp tweet metrics <id-or-url>
-x-mcp tweet thread <id-or-url>
-x-mcp tweet context <id-or-url> --max 10
+x-cli tweet post "Hello world"
+x-cli tweet post --poll "Yes,No" "Do you like polls?"
+x-cli tweet get <id-or-url>
+x-cli tweet delete <id-or-url>
+x-cli tweet reply <id-or-url> "nice post"
+x-cli tweet quote <id-or-url> "this is important"
+x-cli tweet search "machine learning" --limit 20
+x-cli tweet metrics <id-or-url>
+x-cli tweet thread <id-or-url>
+x-cli tweet context <id-or-url> --max 10
 ```
 
 ### Users
 
 ```bash
-x-mcp user get elonmusk
-x-mcp user timeline elonmusk --limit 10
-x-mcp user followers elonmusk --limit 50
-x-mcp user following elonmusk
+x-cli user get elonmusk
+x-cli user timeline elonmusk --limit 10
+x-cli user followers elonmusk --limit 50
+x-cli user following elonmusk
 ```
 
 ### Self and Quick Actions
 
 ```bash
-x-mcp me mentions --limit 20
-x-mcp me bookmarks --limit 20
-x-mcp me bookmark <id-or-url>
-x-mcp me unbookmark <id-or-url>
-x-mcp like <id-or-url>
-x-mcp retweet <id-or-url>
+x-cli me mentions --limit 20
+x-cli me bookmarks --limit 20
+x-cli me bookmark <id-or-url>
+x-cli me unbookmark <id-or-url>
+x-cli like <id-or-url>
+x-cli retweet <id-or-url>
 ```
 
 All tweet commands accept tweet URLs (`https://x.com/user/status/123`) or raw IDs (`123`).
@@ -109,41 +109,41 @@ All tweet commands accept tweet URLs (`https://x.com/user/status/123`) or raw ID
 ### Pagination and Output
 
 ```bash
-x-mcp me bookmarks --limit 50 --page-size 10
-x-mcp me bookmarks --cursor <next_cursor>
-x-mcp tweet get <id> --json
-x-mcp tweet get <id> --format yaml
-x-mcp tweet get <id> --filter-output data.text
+x-cli me bookmarks --limit 50 --page-size 10
+x-cli me bookmarks --cursor <next_cursor>
+x-cli tweet get <id> --json
+x-cli tweet get <id> --format yaml
+x-cli tweet get <id> --filter-output data.text
 ```
 
 Default output is TOON. Incur also provides `--format toon|json|yaml|md|jsonl`, `--json`, `--verbose`, token controls, and schema/manifest flags.
 
 ## Agent Integration
 
-Register `x-mcp` as an MCP stdio server:
+Register `x-cli` as an MCP stdio server:
 
 ```bash
-x-mcp mcp add
+x-cli mcp add
 ```
 
 Or configure the direct server command:
 
 ```bash
-x-mcp
+x-cli
 ```
 
 Export local auth for MCP server environments from normal CLI mode:
 
 ```bash
-x-mcp auth export json
-x-mcp auth export codex
-x-mcp auth export claude
+x-cli auth export json
+x-cli auth export codex
+x-cli auth export claude
 ```
 
-`auth export` includes OAuth credentials and tokens. It is blocked while `x-mcp` is serving MCP so an agent cannot ask the server to reveal its own refresh token. Prefer passing exported auth through `X_MCP_AUTH_JSON`:
+`auth export` includes OAuth credentials and tokens. It is blocked while `x-cli` is serving MCP so an agent cannot ask the server to reveal its own refresh token. Prefer passing exported auth through `X_CLI_AUTH_JSON`:
 
 ```bash
-X_MCP_AUTH_JSON='<auth-bundle-json>' x-mcp
+X_CLI_AUTH_JSON='<auth-bundle-json>' x-cli
 ```
 
 `--auth-json '<auth-bundle-json>'` is still accepted for local testing, but avoid it in shared systems because process arguments can leak through shell history, logs, and process listings.
@@ -151,8 +151,8 @@ X_MCP_AUTH_JSON='<auth-bundle-json>' x-mcp
 Machine-readable manifests:
 
 ```bash
-x-mcp --llms
-x-mcp --llms-full
+x-cli --llms
+x-cli --llms-full
 ```
 
 ## Command Reference
@@ -189,11 +189,11 @@ x-mcp --llms-full
 
 | Location | Purpose |
 |----------|---------|
-| `~/.x-mcp/config.json` | OAuth app credentials and `read-only` or `read-write` mode |
-| `~/.x-mcp/.env` | Optional credential environment file |
+| `~/.x-cli/config.json` | OAuth app credentials and `read-only` or `read-write` mode |
+| `~/.x-cli/.env` | Optional credential environment file |
 | Current directory `.env` | Optional dotenv fallback for local development |
-| `~/.x-mcp/tokens.json` | OAuth access and refresh tokens |
-| `X_MCP_AUTH_JSON` | Runtime-only MCP auth bundle |
+| `~/.x-cli/tokens.json` | OAuth access and refresh tokens |
+| `X_CLI_AUTH_JSON` | Runtime-only MCP auth bundle |
 
 Config and token files are written with owner-only permissions. Never paste auth exports into public issues, shared logs, or model-visible transcripts.
 
@@ -207,9 +207,9 @@ Some commands require user-context OAuth scopes and may also require paid API ac
 
 | Problem | Fix |
 |---------|-----|
-| "Not logged in" | Run `x-mcp auth login` |
-| Token refresh fails | Refresh token expired. Run `x-mcp auth login` again. |
-| 401 Unauthorized | Check `x-mcp auth status`. Re-login if needed. |
+| "Not logged in" | Run `x-cli auth login` |
+| Token refresh fails | Refresh token expired. Run `x-cli auth login` again. |
+| 401 Unauthorized | Check `x-cli auth status`. Re-login if needed. |
 | Reply fails | X restricts programmatic replies. Use `tweet quote` instead. |
 | 429 Rate Limited | Error includes reset timestamp. Wait it out. |
 | Search operator error | Some operators need additional X API access. |
