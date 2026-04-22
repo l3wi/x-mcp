@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from "crypto";
 import { spawn } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { createInterface } from "readline/promises";
 import { getConfigMode, type CliMode, type Env } from "./env.js";
 import { saveTokens, loadTokens, isExpired, type StoredTokens } from "./tokens.js";
 import {
@@ -29,6 +30,12 @@ type Fetcher = (
   init?: RequestInit,
 ) => Promise<Response>;
 type OAuthTokenResponseContext = "Token exchange" | "Token refresh";
+
+export interface LoginOptions {
+  saveTokens?: boolean;
+  manualCallback?: boolean;
+  readCallbackUrl?: () => Promise<string>;
+}
 
 function base64url(buf: Buffer): string {
   return buf.toString("base64url");
@@ -268,6 +275,61 @@ async function waitForCallback(
   });
 }
 
+function parseCallbackUrl(callbackUrl: string, expectedState: string): string {
+  let url: URL;
+  try {
+    url = new URL(callbackUrl.trim());
+  } catch {
+    throw new Error("Invalid callback URL. Paste the full URL from the browser address bar.");
+  }
+
+  if (url.origin !== "http://127.0.0.1:8741" || url.pathname !== "/callback") {
+    throw new Error(
+      "Invalid callback URL. Expected a full http://127.0.0.1:8741/callback URL.",
+    );
+  }
+
+  const returnedState = url.searchParams.get("state");
+  if (returnedState !== expectedState) {
+    throw new Error("State mismatch. Please restart `x-cli auth login --manual`.");
+  }
+
+  const error = url.searchParams.get("error");
+  if (error) {
+    const description = url.searchParams.get("error_description");
+    throw new Error(
+      `Authorization failed: ${error}${description ? ` (${description})` : ""}`,
+    );
+  }
+
+  const code = url.searchParams.get("code")?.trim();
+  if (!code) {
+    throw new Error("Missing authorization code in callback URL.");
+  }
+  return code;
+}
+
+async function readManualCallbackUrl(): Promise<string> {
+  const stdin = process.stdin as NodeJS.ReadStream;
+  const stdout = process.stdout as NodeJS.WriteStream;
+  if (!stdin.isTTY || !stdout.isTTY) {
+    throw new Error(
+      "Manual OAuth login requires an interactive terminal so you can paste the callback URL.",
+    );
+  }
+
+  const rl = createInterface({
+    input: stdin,
+    output: stdout,
+  });
+
+  try {
+    return await rl.question("Paste the full callback URL from your browser: ");
+  } finally {
+    rl.close();
+  }
+}
+
 async function exchangeCode(
   code: string,
   verifier: string,
@@ -301,7 +363,7 @@ async function exchangeCode(
 export async function login(
   env: Env,
   mode: CliMode = getConfigMode(),
-  options: { saveTokens?: boolean } = {},
+  options: LoginOptions = {},
 ): Promise<StoredTokens> {
   const { verifier, challenge } = generatePKCE();
   const state = base64url(randomBytes(16));
@@ -310,6 +372,23 @@ export async function login(
   console.log(`\nAuthorizing in ${mode} mode.`);
   console.log(`\nOpen this URL in your browser to authorize:\n\n  ${authUrl}\n`);
 
+  const code = options.manualCallback
+    ? parseCallbackUrl(
+      await (options.readCallbackUrl ?? readManualCallbackUrl)(),
+      state,
+    )
+    : await authorizeWithLocalCallback(authUrl, state);
+  const tokens = await exchangeCode(code, verifier, env);
+  if (options.saveTokens ?? true) {
+    saveTokens(tokens);
+  }
+  return tokens;
+}
+
+async function authorizeWithLocalCallback(
+  authUrl: string,
+  state: string,
+): Promise<string> {
   try {
     openBrowser(authUrl);
   } catch {
@@ -317,12 +396,7 @@ export async function login(
   }
 
   console.log("Waiting for authorization...");
-  const code = await waitForCallback(state);
-  const tokens = await exchangeCode(code, verifier, env);
-  if (options.saveTokens ?? true) {
-    saveTokens(tokens);
-  }
-  return tokens;
+  return waitForCallback(state);
 }
 
 export async function refreshAccessToken(env: Env): Promise<StoredTokens> {
@@ -420,6 +494,7 @@ export {
   buildAuthUrl as _buildAuthUrl,
   generatePKCE as _generatePKCE,
   hasRequiredWriteScopes as _hasRequiredWriteScopes,
+  parseCallbackUrl as _parseCallbackUrl,
   revokeStoredTokens as _revokeStoredTokens,
 };
 

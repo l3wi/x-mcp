@@ -3,7 +3,9 @@ import {
   _buildAuthUrl,
   _generatePKCE,
   _hasRequiredWriteScopes,
+  _parseCallbackUrl,
   _revokeStoredTokens,
+  login,
   refreshAccessToken,
 } from "../src/lib/oauth.js";
 import { clearRuntimeAuth, setRuntimeTokens } from "../src/lib/runtime.js";
@@ -73,6 +75,44 @@ describe("buildAuthUrl", () => {
     expect(url).toContain("tweet.write");
     expect(url).toContain("like.write");
     expect(url).toContain("bookmark.write");
+  });
+});
+
+describe("manual callback parsing", () => {
+  test("extracts the authorization code from a valid callback URL", () => {
+    expect(
+      _parseCallbackUrl(
+        "http://127.0.0.1:8741/callback?code=auth-code&state=expected-state",
+        "expected-state",
+      ),
+    ).toBe("auth-code");
+  });
+
+  test("rejects callback URLs for a different redirect endpoint", () => {
+    expect(() =>
+      _parseCallbackUrl(
+        "http://localhost:8741/callback?code=auth-code&state=expected-state",
+        "expected-state",
+      )
+    ).toThrow("callback URL");
+  });
+
+  test("rejects callback URLs with mismatched state", () => {
+    expect(() =>
+      _parseCallbackUrl(
+        "http://127.0.0.1:8741/callback?code=auth-code&state=wrong-state",
+        "expected-state",
+      )
+    ).toThrow("State mismatch");
+  });
+
+  test("reports authorization errors from callback URLs", () => {
+    expect(() =>
+      _parseCallbackUrl(
+        "http://127.0.0.1:8741/callback?error=access_denied&error_description=Denied&state=expected-state",
+        "expected-state",
+      )
+    ).toThrow("Authorization failed: access_denied");
   });
 });
 
@@ -289,6 +329,52 @@ describe("refreshAccessToken", () => {
     await expect(
       refreshAccessToken({ X_CLIENT_ID: "client-id" }),
     ).rejects.toThrow("Refresh token expired");
+  });
+});
+
+describe("manual OAuth login", () => {
+  test("exchanges a pasted callback URL and saves returned tokens", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    setRuntimeTokens(storedTokens());
+    globalThis.fetch = vi.fn(async (_input: URL | RequestInfo, init?: RequestInit) => {
+      const body = init?.body as URLSearchParams;
+      expect(body.get("grant_type")).toBe("authorization_code");
+      expect(body.get("code")).toBe("manual-code");
+      expect(body.get("client_id")).toBe("client-id");
+      return new Response(
+        JSON.stringify({
+          access_token: "new-access",
+          refresh_token: "new-refresh",
+          expires_in: 7200,
+          scope: "tweet.read users.read offline.access",
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const tokens = await login(
+      { X_CLIENT_ID: "client-id" },
+      "read-only",
+      {
+        manualCallback: true,
+        readCallbackUrl: async () => {
+          const authUrlOutput = log.mock.calls
+            .flat()
+            .find(
+              (value): value is string =>
+                typeof value === "string" &&
+                value.includes("https://x.com/i/oauth2/authorize"),
+            );
+          const authUrl = authUrlOutput?.match(/https:\/\/\S+/)?.[0];
+          if (!authUrl) throw new Error("Auth URL was not printed.");
+          const state = new URL(authUrl).searchParams.get("state");
+          return `http://127.0.0.1:8741/callback?code=manual-code&state=${state}`;
+        },
+      },
+    );
+
+    expect(tokens.access_token).toBe("new-access");
+    expect(loadTokens()?.refresh_token).toBe("new-refresh");
   });
 });
 

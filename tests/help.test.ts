@@ -133,12 +133,21 @@ describe("stripGlobalOptions", () => {
           "",
           "Options:",
           "  --read-write",
+          "  --manual",
           "",
           "Global Options:",
           "  --format <format>",
           "  --help",
         ].join("\n"),
       ),
-    ).toBe(["Usage: x-cli auth login", "", "Options:", "  --read-write"].join("\n"));
+    ).toBe(
+      [
+        "Usage: x-cli auth login",
+        "",
+        "Options:",
+        "  --read-write",
+        "  --manual",
+      ].join("\n"),
+    );
   });
 });

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+
+- Added `x-cli auth login --manual` for remote OAuth login by pasting the full callback URL.
+
 ## 0.2.2
 
 - Hardened OAuth refresh parsing, token normalization, and re-login guidance for invalid refresh tokens.

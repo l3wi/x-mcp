@@ -44,12 +44,17 @@ export function createAuthCommand(options: AuthCommandOptions = {}) {
           .boolean()
           .default(false)
           .describe("Authorize in read-write mode and persist that mode"),
+        manual: z
+          .boolean()
+          .default(false)
+          .describe("Paste the callback URL instead of waiting on localhost"),
       }),
       async run(c) {
         const env = await resolveLoginEnv();
         const mode = c.options.readWrite ? "read-write" : getConfigMode();
         const tokens = await login(env, mode, {
           saveTokens: mode !== "read-write",
+          manualCallback: c.options.manual,
         });
         if (mode === "read-write") {
           assertRequiredWriteScopes(tokens.scope);

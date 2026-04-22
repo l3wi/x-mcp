@@ -42,6 +42,12 @@ If not logged in:
 x-cli auth login
 ```
 
+For remote shells where the local callback server cannot be reached from the browser, use manual callback paste mode:
+
+```bash
+x-cli auth login --manual
+```
+
 If the user explicitly wants write actions:
 
 ```bash

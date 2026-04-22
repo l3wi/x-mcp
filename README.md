@@ -52,6 +52,14 @@ x-cli auth login
 
 If credentials are not already configured, `x-cli auth login` prompts for them. The CLI creates `~/.x-cli`, saves credentials to `~/.x-cli/config.json` with owner-only permissions, opens your browser, and stores tokens at `~/.x-cli/tokens.json`.
 
+For remote shells where the CLI cannot receive the localhost callback, use manual mode:
+
+```bash
+x-cli auth login --manual
+```
+
+Open the printed authorization URL in your browser. After X redirects to `http://127.0.0.1:8741/callback`, paste the full callback URL back into the CLI.
+
 You can also create `~/.x-cli/config.json` manually:
 
 ```json
@@ -218,7 +226,7 @@ x-cli skills add --no-global
 
 | Command | Description |
 |---------|-------------|
-| `auth login` | Authorize via OAuth 2.0 PKCE |
+| `auth login` | Authorize via OAuth 2.0 PKCE; use `--manual` to paste the callback URL |
 | `auth logout` | Revoke tokens when possible and always delete local tokens |
 | `auth status` | Show token expiry and scopes |
 | `auth export <json\|codex\|claude>` | Export portable MCP auth bundle or client config |

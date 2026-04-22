@@ -1,6 +1,6 @@
 {
   "name": "@lewi/x-cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "MCP server and CLI for X/Twitter API v2",
   "type": "module",
   "main": "./dist/index.js",
