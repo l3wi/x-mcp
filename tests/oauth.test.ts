@@ -1,10 +1,30 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   _buildAuthUrl,
   _generatePKCE,
   _hasRequiredWriteScopes,
   _revokeStoredTokens,
+  refreshAccessToken,
 } from "../src/lib/oauth.js";
+import { clearRuntimeAuth, setRuntimeTokens } from "../src/lib/runtime.js";
+import { loadTokens, type StoredTokens } from "../src/lib/tokens.js";
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  clearRuntimeAuth();
+  vi.restoreAllMocks();
+});
+
+function storedTokens(): StoredTokens {
+  return {
+    access_token: "old-access",
+    refresh_token: "old-refresh",
+    expires_at: 1,
+    scope: "tweet.read users.read offline.access",
+  };
+}
 
 describe("PKCE", () => {
   test("generates verifier and challenge", () => {
@@ -124,6 +144,151 @@ describe("revokeStoredTokens", () => {
         fetcher,
       ),
     ).rejects.toThrow("revocations failed");
+  });
+});
+
+describe("refreshAccessToken", () => {
+  test("refreshes public-client tokens with client_id in the request body", async () => {
+    setRuntimeTokens(storedTokens());
+    const requests: Array<{
+      body: URLSearchParams;
+      headers: HeadersInit | undefined;
+    }> = [];
+    globalThis.fetch = vi.fn(async (_input: URL | RequestInfo, init?: RequestInit) => {
+      requests.push({
+        body: init?.body as URLSearchParams,
+        headers: init?.headers,
+      });
+      return new Response(
+        JSON.stringify({
+          access_token: "new-access",
+          refresh_token: "new-refresh",
+          expires_in: 7200,
+          scope: "tweet.read users.read offline.access",
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const refreshed = await refreshAccessToken({ X_CLIENT_ID: "client-id" });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.body.get("grant_type")).toBe("refresh_token");
+    expect(requests[0]?.body.get("refresh_token")).toBe("old-refresh");
+    expect(requests[0]?.body.get("client_id")).toBe("client-id");
+    expect(requests[0]?.headers).not.toHaveProperty("Authorization");
+    expect(refreshed.access_token).toBe("new-access");
+    expect(refreshed.refresh_token).toBe("new-refresh");
+    expect(loadTokens()?.access_token).toBe("new-access");
+  });
+
+  test("refreshes confidential-client tokens with Basic auth", async () => {
+    setRuntimeTokens(storedTokens());
+    let requestBody: URLSearchParams | undefined;
+    let requestHeaders: HeadersInit | undefined;
+    globalThis.fetch = vi.fn(async (_input: URL | RequestInfo, init?: RequestInit) => {
+      requestBody = init?.body as URLSearchParams;
+      requestHeaders = init?.headers;
+      return new Response(
+        JSON.stringify({
+          access_token: "new-access",
+          refresh_token: "new-refresh",
+          expires_in: 7200,
+          scope: "tweet.read users.read offline.access",
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    await refreshAccessToken({
+      X_CLIENT_ID: "client-id",
+      X_CLIENT_SECRET: "client-secret",
+    });
+
+    expect(requestBody?.get("client_id")).toBeNull();
+    expect((requestHeaders as Record<string, string>).Authorization).toBe(
+      `Basic ${Buffer.from("client-id:client-secret").toString("base64")}`,
+    );
+  });
+
+  test("preserves existing refresh token and scope when refresh omits them", async () => {
+    setRuntimeTokens(storedTokens());
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          access_token: "new-access",
+          expires_in: 7200,
+        }),
+        { status: 200 },
+      )
+    ) as typeof fetch;
+
+    const refreshed = await refreshAccessToken({ X_CLIENT_ID: "client-id" });
+
+    expect(refreshed).toMatchObject({
+      access_token: "new-access",
+      refresh_token: "old-refresh",
+      scope: "tweet.read users.read offline.access",
+    });
+  });
+
+  test("rejects malformed refresh responses without overwriting tokens", async () => {
+    const previous = storedTokens();
+    setRuntimeTokens(previous);
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          refresh_token: "new-refresh",
+          expires_in: 7200,
+          scope: "tweet.read users.read offline.access",
+        }),
+        { status: 200 },
+      )
+    ) as typeof fetch;
+
+    await expect(
+      refreshAccessToken({ X_CLIENT_ID: "client-id" }),
+    ).rejects.toThrow("missing access_token");
+    expect(loadTokens()).toEqual(previous);
+  });
+
+  test("turns X refresh-token errors into re-login guidance", async () => {
+    const previous = storedTokens();
+    setRuntimeTokens(previous);
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: "invalidrequest",
+          errordescription: "Value passed for the token was invalid.",
+        }),
+        { status: 400 },
+      )
+    ) as typeof fetch;
+
+    await expect(
+      refreshAccessToken({ X_CLIENT_ID: "client-id" }),
+    ).rejects.toThrow("Refresh token is no longer valid");
+    await expect(
+      refreshAccessToken({ X_CLIENT_ID: "client-id" }),
+    ).rejects.toThrow("x-cli auth login");
+    expect(loadTokens()).toEqual(previous);
+  });
+
+  test("parses OAuth error_description refresh failures", async () => {
+    setRuntimeTokens(storedTokens());
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: "invalid_grant",
+          error_description: "Refresh token expired",
+        }),
+        { status: 400 },
+      )
+    ) as typeof fetch;
+
+    await expect(
+      refreshAccessToken({ X_CLIENT_ID: "client-id" }),
+    ).rejects.toThrow("Refresh token expired");
   });
 });
 

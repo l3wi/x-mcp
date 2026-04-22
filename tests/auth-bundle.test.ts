@@ -116,6 +116,63 @@ describe("auth bundle", () => {
     });
   });
 
+  test("normalizes token strings on import", () => {
+    const saved: Record<string, unknown> = {};
+
+    persistAuthBundleJson(
+      JSON.stringify({
+        type: "x-cli-auth",
+        version: 1,
+        config: {
+          X_CLIENT_ID: "client",
+          mode: "read-only",
+        },
+        tokens: {
+          access_token: " access ",
+          refresh_token: " refresh ",
+          expires_at: 1_900_000_000,
+          scope: " tweet.read users.read offline.access ",
+        },
+      }),
+      {
+        saveConfig(config) {
+          saved.config = config;
+        },
+        saveTokens(tokens) {
+          saved.tokens = tokens;
+        },
+      },
+    );
+
+    expect(saved.tokens).toEqual({
+      access_token: "access",
+      refresh_token: "refresh",
+      expires_at: 1_900_000_000,
+      scope: "tweet.read users.read offline.access",
+    });
+  });
+
+  test("rejects empty token strings after trimming", () => {
+    expect(() =>
+      persistAuthBundleJson(
+        JSON.stringify({
+          type: "x-cli-auth",
+          version: 1,
+          config: {
+            X_CLIENT_ID: "client",
+            mode: "read-only",
+          },
+          tokens: {
+            access_token: "   ",
+            refresh_token: "refresh",
+            expires_at: 1_900_000_000,
+            scope: "tweet.read users.read offline.access",
+          },
+        }),
+      )
+    ).toThrow("tokens.access_token");
+  });
+
   test("renders claude config with auth in environment", () => {
     const bundle = createAuthBundle({ X_CLIENT_ID: "client" }, tokens());
     const output = JSON.parse(renderAuthBundle(bundle, "claude")) as {

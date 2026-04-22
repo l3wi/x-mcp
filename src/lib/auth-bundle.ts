@@ -224,10 +224,14 @@ function validateTokens(tokens: unknown): StoredTokens {
 }
 
 function expectString(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== "string") {
     throw new Error(`Invalid auth JSON. Missing ${label}.`);
   }
-  return value;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new Error(`Invalid auth JSON. Missing ${label}.`);
+  }
+  return trimmed;
 }
 
 function expectNumber(value: unknown, label: string): number {

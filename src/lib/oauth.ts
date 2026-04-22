@@ -28,6 +28,7 @@ type Fetcher = (
   input: URL | RequestInfo,
   init?: RequestInit,
 ) => Promise<Response>;
+type OAuthTokenResponseContext = "Token exchange" | "Token refresh";
 
 function base64url(buf: Buffer): string {
   return buf.toString("base64url");
@@ -76,6 +77,140 @@ function tokenHeaders(env: Env): Record<string, string> {
   const auth = basicAuth(env);
   if (auth) headers["Authorization"] = `Basic ${auth}`;
   return headers;
+}
+
+async function readJsonObject(
+  resp: Response,
+  context: OAuthTokenResponseContext,
+): Promise<Record<string, unknown>> {
+  let parsed: unknown;
+  try {
+    parsed = await resp.json();
+  } catch {
+    throw new Error(`${context} response was not valid JSON.`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${context} response was not a JSON object.`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function requiredResponseString(
+  value: unknown,
+  context: OAuthTokenResponseContext,
+  field: string,
+): string {
+  if (typeof value !== "string") {
+    throw new Error(`${context} response missing ${field}.`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${context} response missing ${field}.`);
+  }
+  return trimmed;
+}
+
+function optionalResponseString(
+  value: unknown,
+  context: OAuthTokenResponseContext,
+  field: string,
+): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  return requiredResponseString(value, context, field);
+}
+
+function parseTokenResponse(
+  raw: Record<string, unknown>,
+  context: OAuthTokenResponseContext,
+  current?: StoredTokens,
+): StoredTokens {
+  const expiresIn = raw.expires_in;
+  if (
+    typeof expiresIn !== "number" ||
+    !Number.isFinite(expiresIn) ||
+    expiresIn <= 0
+  ) {
+    throw new Error(`${context} response missing expires_in.`);
+  }
+
+  const refreshToken =
+    optionalResponseString(raw.refresh_token, context, "refresh_token") ??
+    current?.refresh_token;
+  if (!refreshToken) {
+    throw new Error(`${context} response missing refresh_token.`);
+  }
+
+  const scope =
+    optionalResponseString(raw.scope, context, "scope") ??
+    current?.scope;
+  if (scope === undefined) {
+    throw new Error(`${context} response missing scope.`);
+  }
+
+  return {
+    access_token: requiredResponseString(raw.access_token, context, "access_token"),
+    refresh_token: refreshToken,
+    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+    scope,
+  };
+}
+
+function parseOAuthErrorBody(text: string): {
+  code?: string;
+  description: string;
+} {
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const code = typeof parsed.error === "string" ? parsed.error : undefined;
+      const descriptions = [
+        parsed.error_description,
+        parsed.errordescription,
+        parsed.message,
+        parsed.detail,
+      ];
+      const description = descriptions.find(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      );
+      return {
+        ...(code ? { code } : {}),
+        description: description?.trim() ?? code ?? text,
+      };
+    }
+  } catch {
+    // Fall through to raw response text.
+  }
+  return { description: text.trim() || "Unknown OAuth error." };
+}
+
+function isInvalidRefreshTokenError(code: string | undefined, description: string): boolean {
+  const normalizedCode = code?.toLowerCase().replace(/[^a-z_]/g, "");
+  const normalizedDescription = description.toLowerCase();
+  return (
+    normalizedCode === "invalid_grant" ||
+    normalizedCode === "invalid_request" ||
+    normalizedCode === "invalidrequest" ||
+    normalizedDescription.includes("token was invalid") ||
+    normalizedDescription.includes("refresh token expired") ||
+    normalizedDescription.includes("invalid refresh token")
+  );
+}
+
+function formatOAuthError(
+  context: OAuthTokenResponseContext,
+  status: number,
+  text: string,
+): Error {
+  const { code, description } = parseOAuthErrorBody(text);
+  if (context === "Token refresh" && isInvalidRefreshTokenError(code, description)) {
+    return new Error(
+      [
+        `Refresh token is no longer valid (${status}): ${description}`,
+        "Run `x-cli auth login` to authorize again, or `x-cli auth login --read-write` if write access is needed.",
+      ].join(" "),
+    );
+  }
+  return new Error(`${context} failed (${status}): ${description}`);
 }
 
 async function waitForCallback(
@@ -154,22 +289,13 @@ async function exchangeCode(
 
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`Token exchange failed (${resp.status}): ${text}`);
+    throw formatOAuthError("Token exchange", resp.status, text);
   }
 
-  const data = await resp.json() as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-    scope: string;
-  };
-
-  return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-    scope: data.scope,
-  };
+  return parseTokenResponse(
+    await readJsonObject(resp, "Token exchange"),
+    "Token exchange",
+  );
 }
 
 export async function login(
@@ -219,22 +345,14 @@ export async function refreshAccessToken(env: Env): Promise<StoredTokens> {
 
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`Token refresh failed (${resp.status}): ${text}`);
+    throw formatOAuthError("Token refresh", resp.status, text);
   }
 
-  const data = await resp.json() as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-    scope: string;
-  };
-
-  const tokens: StoredTokens = {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-    scope: data.scope,
-  };
+  const tokens = parseTokenResponse(
+    await readJsonObject(resp, "Token refresh"),
+    "Token refresh",
+    current,
+  );
   saveTokens(tokens);
   return tokens;
 }

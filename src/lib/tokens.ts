@@ -54,20 +54,25 @@ export function isExpired(tokens: StoredTokens): boolean {
 function validateStoredTokens(value: unknown): StoredTokens | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
-  if (typeof raw.access_token !== "string" || raw.access_token.length === 0) {
-    return null;
-  }
-  if (typeof raw.refresh_token !== "string" || raw.refresh_token.length === 0) {
-    return null;
-  }
+  const accessToken = normalizeTokenString(raw.access_token);
+  if (!accessToken) return null;
+  const refreshToken = normalizeTokenString(raw.refresh_token);
+  if (!refreshToken) return null;
   if (typeof raw.expires_at !== "number" || !Number.isFinite(raw.expires_at)) {
     return null;
   }
-  if (typeof raw.scope !== "string") return null;
+  const scope = normalizeTokenString(raw.scope);
+  if (scope === null) return null;
   return {
-    access_token: raw.access_token,
-    refresh_token: raw.refresh_token,
+    access_token: accessToken,
+    refresh_token: refreshToken,
     expires_at: raw.expires_at,
-    scope: raw.scope,
+    scope,
   };
+}
+
+function normalizeTokenString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

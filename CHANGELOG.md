@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- Hardened OAuth refresh parsing, token normalization, and re-login guidance for invalid refresh tokens.
+
 ## 0.2.1
 
 - Hid write tools and mutating local auth/config tools from MCP when they are not safe to expose.

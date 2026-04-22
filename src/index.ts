@@ -56,7 +56,7 @@ async function main(): Promise<void> {
 
   setRuntimeMcpServing(servingMcp);
   const cli = Cli.create(cliName, {
-    version: "0.2.1",
+    version: "0.2.2",
     description: "MCP server and CLI for X/Twitter API v2",
     sync: {
       depth: 1,
