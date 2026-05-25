@@ -1,6 +1,17 @@
-import type { Env } from "./env.js";
+import type { Env, ReadEnv } from "./env.js";
 import { getAccessToken, refreshAccessToken } from "./oauth.js";
 import { clampPageSize, type CursorPageRequest } from "./pagination.js";
+import {
+  getHermesTweetConfig,
+  hermesGetFollowers,
+  hermesGetFollowing,
+  hermesGetTweet,
+  hermesGetTweetMetrics,
+  hermesGetTweetThread,
+  hermesGetUser,
+  hermesGetUserTweets,
+  hermesSearchTweets,
+} from "./hermes-tweet.js";
 
 const API_BASE = "https://api.x.com/2";
 
@@ -55,10 +66,10 @@ function addCursorParams(
 }
 
 export class XApiClient {
-  private env: Env;
+  private env: ReadEnv;
   private userId: string | null = null;
 
-  constructor(env: Env) {
+  constructor(env: ReadEnv) {
     this.env = env;
   }
 
@@ -69,12 +80,13 @@ export class XApiClient {
     url: string,
     body?: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    let token = await getAccessToken(this.env);
+    const env = requireOAuthEnv(this.env);
+    let token = await getAccessToken(env);
     let resp = await this.doFetch(method, url, token, body);
 
     // Auto-refresh on 401
     if (resp.status === 401) {
-      const refreshed = await refreshAccessToken(this.env);
+      const refreshed = await refreshAccessToken(env);
       token = refreshed.access_token;
       resp = await this.doFetch(method, url, token, body);
     }
@@ -164,6 +176,9 @@ export class XApiClient {
   }
 
   async getTweet(tweetId: string) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesGetTweet(hermes, tweetId);
+
     const params = new URLSearchParams({
       "tweet.fields":
         "created_at,public_metrics,author_id,conversation_id,in_reply_to_user_id,referenced_tweets,attachments,entities,lang,note_tweet",
@@ -178,6 +193,9 @@ export class XApiClient {
     query: string,
     options: CursorPageRequest = { maxResults: 10 },
   ) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesSearchTweets(hermes, query, options);
+
     const params = new URLSearchParams({
       query,
       "tweet.fields":
@@ -191,6 +209,9 @@ export class XApiClient {
   }
 
   async getThread(tweetId: string) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesGetTweetThread(hermes, tweetId);
+
     const tweet = await this.getTweet(tweetId);
     const data = tweet.data as Record<string, unknown>;
     const convId = data.conversation_id as string | undefined;
@@ -219,6 +240,14 @@ export class XApiClient {
   }
 
   async getConversationContext(tweetId: string, maxResults: number = 10) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) {
+      return {
+        target: await hermesGetTweet(hermes, tweetId),
+        replies: await hermesGetTweetThread(hermes, tweetId),
+      };
+    }
+
     const target = await this.getTweet(tweetId);
     const conversationId = getConversationId(target, tweetId);
     const replies = await this.request(
@@ -233,6 +262,9 @@ export class XApiClient {
   }
 
   async getTweetMetrics(tweetId: string) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesGetTweetMetrics(hermes, tweetId);
+
     const params = new URLSearchParams({
       "tweet.fields": "public_metrics",
     });
@@ -242,6 +274,9 @@ export class XApiClient {
   // ---- users ----
 
   async getUser(username: string) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesGetUser(hermes, username);
+
     const params = new URLSearchParams({
       "user.fields":
         "created_at,description,public_metrics,verified,profile_image_url,url,location,pinned_tweet_id",
@@ -256,6 +291,9 @@ export class XApiClient {
     userId: string,
     options: CursorPageRequest = { maxResults: 10 },
   ) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesGetUserTweets(hermes, userId, options);
+
     const params = new URLSearchParams({
       "tweet.fields":
         "created_at,public_metrics,author_id,conversation_id,entities,lang,note_tweet",
@@ -274,6 +312,9 @@ export class XApiClient {
     userId: string,
     options: CursorPageRequest = { maxResults: 100 },
   ) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesGetFollowers(hermes, userId, options);
+
     const params = new URLSearchParams({
       "user.fields":
         "created_at,description,public_metrics,verified,profile_image_url",
@@ -289,6 +330,9 @@ export class XApiClient {
     userId: string,
     options: CursorPageRequest = { maxResults: 100 },
   ) {
+    const hermes = getHermesTweetConfig(this.env);
+    if (hermes) return hermesGetFollowing(hermes, userId, options);
+
     const params = new URLSearchParams({
       "user.fields":
         "created_at,description,public_metrics,verified,profile_image_url",
@@ -365,7 +409,7 @@ export class XApiClient {
   }
 }
 
-export function createClient(env: Env): XApiClient {
+export function createClient(env: ReadEnv): XApiClient {
   return new XApiClient(env);
 }
 
@@ -419,6 +463,18 @@ function errorMessage(data: Record<string, unknown>, text: string): string {
   if (typeof data.message === "string") return data.message;
   if (text) return text.slice(0, 500);
   return JSON.stringify(data).slice(0, 500);
+}
+
+function requireOAuthEnv(env: ReadEnv): Env {
+  if (!env.X_CLIENT_ID) {
+    throw new Error(
+      "Missing X OAuth credentials. Run `x-cli auth login` or set HERMES_TWEET_API_KEY for read commands.",
+    );
+  }
+  return {
+    X_CLIENT_ID: env.X_CLIENT_ID,
+    ...(env.X_CLIENT_SECRET ? { X_CLIENT_SECRET: env.X_CLIENT_SECRET } : {}),
+  };
 }
 
 function validatePoll(options: string[], durationMinutes: number): void {

@@ -23,6 +23,7 @@ src/
     retweet.ts          -- top-level retweet command
   lib/
     api.ts              -- XApiClient methods for X API v2 endpoints
+    hermes-tweet.ts     -- Optional Hermes Tweet-compatible read backend
     argv.ts             -- Bootstrap argv normalization
     oauth.ts            -- OAuth 2.0 PKCE, refresh, revoke, write-scope checks
     pagination.ts       -- Cursor pagination helpers and include merging
@@ -44,6 +45,7 @@ tests/
 - Runtime MCP auth can be provided through `X_CLI_AUTH_JSON` or `--auth-json`; environment transport is preferred.
 - Local config lives under `~/.x-cli/config.json`; tokens live under `~/.x-cli/tokens.json`.
 - Config and token files are written with owner-only permissions.
+- Read commands can use `HERMES_TWEET_API_KEY` or `XQUIK_API_KEY` instead of OAuth credentials. If OAuth is also configured, set `X_CLI_READ_BACKEND=hermes-tweet` to prefer that backend.
 - Default mode is `read-only`; write commands call `requireReadWriteMode()`.
 - Switching to `read-write` with existing tokens re-runs OAuth and only persists the mode after required write scopes are granted.
 - `auth logout` always deletes local tokens and attempts remote revocation only when OAuth app credentials are available.
@@ -62,7 +64,7 @@ Tests use Vitest. No test should call live X APIs.
 
 ## Adding Commands
 
-1. Add the X API method in `lib/api.ts`.
+1. Add the X API method in `lib/api.ts`; if the command is public-read compatible, consider the Hermes Tweet backend in `lib/hermes-tweet.ts`.
 2. Add the CLI command under the appropriate `commands/*.ts` module.
 3. If the command writes to X, add the read-write guard and update the read-only help filtering list.
 4. Add deterministic tests with mocked inputs/responses.

@@ -124,9 +124,28 @@ export const envSchema = z.object({
     .optional()
     .describe("OAuth 2.0 Client Secret (confidential clients)"),
 });
+export const readEnvSchema = envSchema.partial().extend({
+  HERMES_TWEET_API_KEY: z
+    .string()
+    .optional()
+    .describe("Hermes Tweet-compatible API key for read commands"),
+  XQUIK_API_KEY: z
+    .string()
+    .optional()
+    .describe("Compatibility alias for HERMES_TWEET_API_KEY"),
+  XQUIK_BASE_URL: z
+    .string()
+    .optional()
+    .describe("Hermes Tweet-compatible API base URL"),
+  X_CLI_READ_BACKEND: z
+    .string()
+    .optional()
+    .describe("Set to hermes-tweet to prefer the Hermes Tweet-compatible read backend"),
+});
 export const optionalEnvSchema = envSchema.partial();
 
 export type Env = z.infer<typeof envSchema>;
+export type ReadEnv = z.infer<typeof readEnvSchema>;
 
 export function getEnvFromProcess(): Env | null {
   const parsed = envSchema.safeParse(process.env);

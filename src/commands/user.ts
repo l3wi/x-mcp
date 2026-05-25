@@ -1,5 +1,5 @@
 import { Cli, z } from "incur";
-import { envSchema } from "../lib/env.js";
+import { readEnvSchema } from "../lib/env.js";
 import { createClient } from "../lib/api.js";
 import { paginateCursor } from "../lib/pagination.js";
 import { parseUsername } from "../lib/utils.js";
@@ -10,7 +10,7 @@ export const user = Cli.create("user", {
 
 user.command("get", {
   description: "Look up a user profile",
-  env: envSchema,
+  env: readEnvSchema,
   args: z.object({
     username: z.string().describe("Username (with or without @)"),
   }),
@@ -22,7 +22,7 @@ user.command("get", {
 
 user.command("timeline", {
   description: "Fetch a user's recent tweets",
-  env: envSchema,
+  env: readEnvSchema,
   args: z.object({
     username: z.string().describe("Username (with or without @)"),
   }),
@@ -35,16 +35,17 @@ user.command("timeline", {
   async run(c) {
     const client = createClient(c.env);
     const uname = parseUsername(c.args.username);
-    const userData = (await client.getUser(uname)) as { data: { id: string } };
+    const userData = await client.getUser(uname);
+    const userId = getTimelineLookupKey(userData, uname);
     return paginateCursor(c.options, (request) =>
-      client.getTimeline(userData.data.id, request),
+      client.getTimeline(userId, request),
     );
   },
 });
 
 user.command("followers", {
   description: "List a user's followers",
-  env: envSchema,
+  env: readEnvSchema,
   args: z.object({
     username: z.string().describe("Username (with or without @)"),
   }),
@@ -57,16 +58,17 @@ user.command("followers", {
   async run(c) {
     const client = createClient(c.env);
     const uname = parseUsername(c.args.username);
-    const userData = (await client.getUser(uname)) as { data: { id: string } };
+    const userData = await client.getUser(uname);
+    const userId = getTimelineLookupKey(userData, uname);
     return paginateCursor(c.options, (request) =>
-      client.getFollowers(userData.data.id, request),
+      client.getFollowers(userId, request),
     );
   },
 });
 
 user.command("following", {
   description: "List who a user follows",
-  env: envSchema,
+  env: readEnvSchema,
   args: z.object({
     username: z.string().describe("Username (with or without @)"),
   }),
@@ -79,9 +81,21 @@ user.command("following", {
   async run(c) {
     const client = createClient(c.env);
     const uname = parseUsername(c.args.username);
-    const userData = (await client.getUser(uname)) as { data: { id: string } };
+    const userData = await client.getUser(uname);
+    const userId = getTimelineLookupKey(userData, uname);
     return paginateCursor(c.options, (request) =>
-      client.getFollowing(userData.data.id, request),
+      client.getFollowing(userId, request),
     );
   },
 });
+
+function getTimelineLookupKey(userData: Record<string, unknown>, fallback: string): string {
+  const data = userData.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return fallback;
+  const record = data as Record<string, unknown>;
+  return firstString(record.id) || firstString(record.username) || fallback;
+}
+
+function firstString(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}

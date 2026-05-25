@@ -2,6 +2,7 @@ import { Cli, z } from "incur";
 import {
   envSchema,
   optionalEnvSchema,
+  readEnvSchema,
   requireReadWriteMode,
 } from "../lib/env.js";
 import { createClient } from "../lib/api.js";
@@ -49,7 +50,7 @@ export function createTweetCommand(options: TweetCommandOptions = {}) {
 
   tweet.command("get", {
     description: "Fetch a tweet by ID or URL",
-    env: envSchema,
+    env: readEnvSchema,
     args: z.object({
       id: z.string().describe("Tweet ID or URL"),
     }),
@@ -114,7 +115,7 @@ export function createTweetCommand(options: TweetCommandOptions = {}) {
   tweet.command("thread", {
     description:
       "Fetch compact tweet context: target tweet, conversation root, and quoted tweets.",
-    env: envSchema,
+    env: readEnvSchema,
     args: z.object({
       id: z.string().describe("Tweet ID or URL"),
     }),
@@ -128,7 +129,7 @@ export function createTweetCommand(options: TweetCommandOptions = {}) {
   tweet.command("context", {
     description:
       "Fetch a tweet with recent conversation context: target tweet and recent tweets in the same conversation.",
-    env: envSchema,
+    env: readEnvSchema,
     args: z.object({
       id: z.string().describe("Tweet ID or URL"),
     }),
@@ -147,7 +148,7 @@ export function createTweetCommand(options: TweetCommandOptions = {}) {
 
   tweet.command("search", {
     description: "Search recent tweets",
-    env: envSchema,
+    env: readEnvSchema,
     args: z.object({
       query: z.string().describe("Search query"),
     }),
@@ -173,7 +174,7 @@ export function createTweetCommand(options: TweetCommandOptions = {}) {
 
   tweet.command("metrics", {
     description: "Get public tweet engagement metrics.",
-    env: envSchema,
+    env: readEnvSchema,
     args: z.object({
       id: z.string().describe("Tweet ID or URL"),
     }),
