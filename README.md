@@ -72,6 +72,25 @@ You can also create `~/.x-cli/config.json` manually:
 
 For public/native apps, omit `X_CLIENT_SECRET`.
 
+### Optional Hermes Tweet-Compatible Read Backend
+
+Read commands can use a Hermes Tweet-compatible Xquik endpoint instead of X
+OAuth. This is useful for agent research environments that only need public
+tweet search, tweet lookup, user lookup, timelines, followers, or following.
+
+```bash
+export HERMES_TWEET_API_KEY="xq_..."
+x-cli tweet search "machine learning" --limit 20
+x-cli user timeline elonmusk --limit 10
+```
+
+`XQUIK_API_KEY` is accepted as a compatibility alias, and `XQUIK_BASE_URL`
+defaults to `https://xquik.com`. When OAuth credentials are also configured,
+the normal X API path remains the default; set
+`X_CLI_READ_BACKEND=hermes-tweet` to prefer the Hermes Tweet-compatible read
+backend for read commands. Write commands still require X OAuth and
+`read-write` mode.
+
 The CLI defaults to `read-only` mode. Enable write actions only when you need posting, deleting, liking, retweeting, or bookmarking:
 
 ```bash
@@ -262,6 +281,10 @@ x-cli skills add --no-global
 | Current directory `.env` | Optional dotenv fallback for local development |
 | `~/.x-cli/tokens.json` | OAuth access and refresh tokens |
 | `X_CLI_AUTH_JSON` | Runtime-only MCP auth bundle |
+| `HERMES_TWEET_API_KEY` | Optional Hermes Tweet-compatible key for read commands |
+| `XQUIK_API_KEY` | Compatibility alias for `HERMES_TWEET_API_KEY` |
+| `XQUIK_BASE_URL` | Optional Hermes Tweet-compatible API base URL |
+| `X_CLI_READ_BACKEND` | Set to `hermes-tweet` to prefer that read backend when OAuth is also configured |
 
 Config and token files are written with owner-only permissions. Never paste auth exports into public issues, shared logs, or model-visible transcripts.
 
@@ -281,6 +304,7 @@ Some commands require user-context OAuth scopes and may also require paid API ac
 | Reply fails | X restricts programmatic replies. Use `tweet quote` instead. |
 | 429 Rate Limited | Error includes reset timestamp. Wait it out. |
 | Search operator error | Some operators need additional X API access. |
+| Read command needs no OAuth app | Set `HERMES_TWEET_API_KEY` and leave `X_CLIENT_ID` unset, or set `X_CLI_READ_BACKEND=hermes-tweet`. |
 
 ## Development
 

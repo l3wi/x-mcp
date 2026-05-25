@@ -34,6 +34,9 @@ Interpret the result:
 
 - `auth status` shows whether tokens are active, expired, refreshable, and what OAuth scopes were granted.
 - `config show` shows `read-only` or `read-write` mode.
+- Public read actions can alternatively use `HERMES_TWEET_API_KEY` or
+  `XQUIK_API_KEY`; set `X_CLI_READ_BACKEND=hermes-tweet` when OAuth credentials
+  are also configured and you want that backend.
 - Write actions require `read-write` mode and matching write scopes such as `tweet.write`, `like.write`, or `bookmark.write`.
 
 If not logged in:
