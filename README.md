@@ -265,6 +265,15 @@ x-cli skills add --no-global
 
 Config and token files are written with owner-only permissions. Never paste auth exports into public issues, shared logs, or model-visible transcripts.
 
+### Optional GetXAPI Read Backend
+
+When `GETXAPI_API_KEY` is set, tweet-search reads can route through GetXAPI's `advanced_search` endpoint instead of the X API. Write actions and OAuth-scoped reads continue to use the existing OAuth flow.
+
+```bash
+export GETXAPI_API_KEY="..."
+export GETXAPI_BASE_URL="https://api.getxapi.com"
+```
+
 ## X API Access Notes
 
 X API plan limits, pricing, and endpoint availability change over time. If a command returns a permission, tier, or rate-limit error, check the current X API docs and your developer portal plan before assuming the CLI is misconfigured.
